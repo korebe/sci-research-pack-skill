@@ -1,8 +1,8 @@
 {
-  "_comment": "Claude Desktop / Claude Code style MCP config. Replace the executable path.",
+  "_comment": "Claude Desktop / Claude Code style MCP config. Replace <PACK_ROOT> with your absolute path to this pack.",
   "mcpServers": {
     "ansys-fluent": {
-      "command": "C:\\Users\\ASUS\\Desktop\\中转战\\sci-research-pack\\.venv\\Scripts\\ansys-fluent-mcp.exe",
+      "command": "<PACK_ROOT>\\.venv\\Scripts\\ansys-fluent-mcp.exe",
       "args": [],
       "env": {
         "FLUIDS_MCP_LOG_LEVEL": "INFO",

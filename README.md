@@ -14,7 +14,7 @@
 ### Windows
 
 ```powershell
-cd C:\Users\ASUS\Desktop\中转战\sci-research-pack
+cd path\to\sci-research-pack
 
 # 1) 只装技能（默认 full，装到 OpenCode）
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1

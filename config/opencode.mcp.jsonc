@@ -1,14 +1,15 @@
 {
   // OpenCode V2 MCP configuration snippet.
   // Merge into ~/.config/opencode/opencode.json (note: mcp.servers, NOT mcp directly).
-  // Replace the path with your real .venv path. Use absolute paths; ~ is not expanded here.
+  // Replace <PACK_ROOT> with your absolute path to this pack. Use absolute paths;
+  // ~ is not expanded here. install.ps1 -WithFluent writes this for you.
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
     "servers": {
       "ansys-fluent": {
         "type": "local",
         "command": [
-          "C:\\Users\\ASUS\\Desktop\\中转战\\sci-research-pack\\.venv\\Scripts\\ansys-fluent-mcp.exe"
+          "<PACK_ROOT>\\.venv\\Scripts\\ansys-fluent-mcp.exe"
         ],
         "environment": {
           "FLUIDS_MCP_LOG_LEVEL": "INFO",
