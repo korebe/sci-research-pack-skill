@@ -1,7 +1,7 @@
 # SCI Research Pack
 
 > 面向 **Nature / Cell / Science / SCI** 的论文写作 + CFD 仿真 Agent 整合包。
-> 43 个技能，1 个官方 Fluent MCP，6 个 slash command，一套可直接执行的检查清单。
+> 43 个技能，1 个官方 Fluent MCP，6 个 slash command，支持 OpenCode / Claude Code / Codex / Claude Desktop。
 
 - **写作主线**：证据 → 结构 → 写作 → 润色 → 图表 → 统计 → 引用 → 模拟审稿 → 回复 → 投稿
 - **仿真主线**：物理 → 网格 → 求解 → 收敛 → 验证 → 出图 → Methods
@@ -22,11 +22,33 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 # 2) 同时装 Fluent MCP（需要本机有 Fluent + 许可证）
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -WithFluent
 
-# 3) 自检
-.\verify.ps1
+# 3) 装到多个客户端
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Clients opencode,claude,codex
+
+# 4) 自检
+.\verify.ps1 -Clients opencode,claude,codex
 ```
 
 装完打开 OpenCode，输入 `/paper` 或 `/cfd`。
+
+### 四个客户端装到哪
+
+`-Clients`（bash 是 `--clients`）可取：`opencode`、`claude`、`codex`、`claude-desktop`，可任意组合。
+
+| 客户端 | 技能目录 | 斜杠命令 | MCP 配置 |
+|---|---|---|---|
+| OpenCode | `~/.config/opencode/skills/` | `~/.config/opencode/commands/` | `opencode.json` → `mcp.servers` |
+| Claude Code | `~/.claude/skills/` | `~/.claude/commands/` | `~/.claude.json` → `mcpServers` |
+| Codex CLI | `~/.agents/skills/` | 无（用 `/skills` 或 `$技能名`） | `~/.codex/config.toml` → `[mcp_servers.<name>]` |
+| Claude Desktop | 无目录，上传 zip | 无 | `%APPDATA%\Claude\claude_desktop_config.json` |
+
+三个反直觉的地方：
+
+- **Codex 的技能目录是 `~/.agents/skills`，不是 `~/.codex/skills`。** `~/.codex` 只放 `config.toml`。
+- **Codex 没有自定义斜杠命令。** 本包的 `/paper`、`/cfd` 对 Codex 不生效，改用 `/skills` 选 `journal-pipeline`，或直接打 `$journal-pipeline`。
+- **Claude Desktop 不读任何技能目录。** 加 `-Clients claude-desktop` 时脚本会把技能打包到 `dist/claude-skills/<id>.zip`，再到应用内 `Settings → Capabilities → Skills` 逐个上传；它的 MCP 配置改完必须从托盘退出重开才生效。
+
+细节见 [`docs/08-客户端接入.md`](docs/08-客户端接入.md)。
 
 ### 只想要精简版
 
@@ -43,6 +65,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -WithFluent
 cd sci-research-pack
 ./install.sh
 ./install.sh --profile core --with-fluent
+./install.sh --clients opencode,claude,codex
+./install.sh --help                          # 全部参数
 ```
 
 ---
@@ -120,11 +144,14 @@ sci-research-pack/
 │  ├─ 04-Science写作规范.md
 │  ├─ 05-投稿前检查清单.md
 │  ├─ 06-CFD验证清单.md
-│  └─ 07-故障排查.md
+│  ├─ 07-故障排查.md
+│  └─ 08-客户端接入.md          OpenCode / Claude Code / Codex / Claude Desktop
 ├─ templates/
 │  ├─ cover-letter.md
 │  ├─ response-to-reviewers.md
 │  └─ cfd-report.md
+├─ dist/
+│  └─ claude-skills/*.zip       装 Claude Desktop 时生成，供应用内上传
 ├─ licenses/                    上游许可证原文
 └─ THIRD_PARTY_NOTICES.md
 ```
@@ -132,6 +159,8 @@ sci-research-pack/
 ---
 
 ## 典型用法
+
+> 下面的 `/paper`、`/cfd` 是 OpenCode 和 Claude Code 的命令。Codex 用户把 `/paper 需求` 换成 `/skills` 选 `journal-pipeline` 再描述需求（或 `$journal-pipeline`）；Claude Desktop 直接在对话里说需求即可。
 
 ### 1. 从零写一篇 Nature 子刊论文
 
@@ -176,14 +205,20 @@ Agent 会在 `connect` 前提醒 license 占用；收敛判断要求残差 + mon
 本包安装的是 **ANSYS 官方** [`ansys/pyfluent-mcp`](https://github.com/ansys/pyfluent-mcp)（Apache-2.0，64★，2026-07 发布，活跃维护）。
 
 ```powershell
-.\install.ps1 -WithFluent
+.\install.ps1 -WithFluent -Clients opencode,claude,codex,claude-desktop
 ```
 
 它会：
 
 1. 在包目录创建 `.venv`
 2. `pip install ansys-fluent-mcp`
-3. 把 `ansys-fluent` 注册到 OpenCode（有 CLI 时用 `opencode mcp add`，否则合并 `opencode.json`）
+3. 把 `ansys-fluent` 注册到每个 `-Clients` 指定的客户端：
+   - OpenCode：有 CLI 时用 `opencode mcp add`，否则合并 `opencode.json`
+   - Claude Code：`claude mcp add --scope user`
+   - Codex：向 `~/.codex/config.toml` 追加 `[mcp_servers.ansys-fluent]`（含 `tool_timeout_sec = 600`，防止长求解被默认超时掐断）
+   - Claude Desktop：合并 `claude_desktop_config.json` 的 `mcpServers`，改完需从托盘退出重开
+
+四个客户端共用同一个 `.venv` 和同一个 `ansys-fluent-mcp.exe`，删掉 `.venv` 会一起失效。
 
 **硬性前提**：本机安装并授权 Ansys Fluent。MCP 只负责执行，不负责判断物理是否正确。
 
@@ -228,11 +263,11 @@ ARS 是完整的 "research → write → review → revise → finalize" 十阶�
 ## 验证与卸载
 
 ```powershell
-.\verify.ps1          # 技能数、命令、MCP、venv、Fluent 安装
-.\uninstall.ps1       # 列出将删除的目录，确认后删除
+.\verify.ps1 -Clients opencode,claude,codex,claude-desktop
+.\uninstall.ps1 -Clients opencode,claude,codex
 ```
 
-MCP 配置和 `~/.codex/config.toml` 不会被自动删除。
+`verify` 按客户端分别核对技能目录、命令文件、MCP 条目、Claude Desktop 的 zip、venv 和 Fluent 安装。`uninstall` 只删本包装进去的技能目录和命令文件，不动别的技能、不删 `.venv`、不删文稿；MCP 条目要按 `docs/08-客户端接入.md` 第 7 节手动清。
 
 ---
 

@@ -11,7 +11,12 @@
   full | core | writing | sim   (default: full)
 
 .PARAMETER Clients
-  Any of: opencode, claude, codex   (default: opencode)
+  Any of: opencode, claude, codex, claude-desktop   (default: opencode)
+
+  opencode        skills + commands + MCP
+  claude          Claude Code (CLI): skills + commands + MCP
+  codex           Codex CLI: skills + MCP
+  claude-desktop  Claude Desktop (GUI): MCP only; skills are uploaded as a zip
 
 .PARAMETER WithFluent
   Create .venv, pip install ansys-fluent-mcp, register the MCP server.
@@ -31,7 +36,9 @@ param(
     [ValidateSet('full', 'core', 'writing', 'sim')]
     [string]$Profile = 'full',
 
-    [ValidateSet('opencode', 'claude', 'codex')]
+    # No ValidateSet here: when the script is launched with `powershell -File`,
+    # "-Clients opencode,claude" arrives as ONE string, and ValidateSet would
+    # reject it. Normalised and validated below instead.
     [string[]]$Clients = @('opencode'),
 
     [switch]$WithFluent,
@@ -46,6 +53,24 @@ param(
 
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
+
+# ---------------------------------------------------------------- clients
+
+$ValidClients = @('opencode', 'claude', 'codex', 'claude-desktop')
+$Clients = @(
+    $Clients |
+        ForEach-Object { $_ -split ',' } |
+        ForEach-Object { $_.Trim() } |
+        Where-Object { $_ } |
+        Select-Object -Unique
+)
+if ($Clients.Count -eq 0) { $Clients = @('opencode') }
+$unknown = @($Clients | Where-Object { $ValidClients -notcontains $_ })
+if ($unknown.Count -gt 0) {
+    Write-Host "  [XX] unknown client: $($unknown -join ', ')" -ForegroundColor Red
+    Write-Host "       expected: $($ValidClients -join ', ')"
+    exit 1
+}
 
 # ---------------------------------------------------------------- helpers
 
@@ -64,19 +89,25 @@ function Write-Err2($msg) { Write-Host "  [XX] $msg" -ForegroundColor Red }
 function Get-SkillsRoot {
     param([string]$Client)
     switch ($Client) {
-        'opencode' { return (Join-Path $env:USERPROFILE '.config\opencode\skills') }
-        'claude'   { return (Join-Path $env:USERPROFILE '.claude\skills') }
-        'codex'    { return (Join-Path $env:USERPROFILE '.codex\skills') }
-        default    { throw "Unknown client: $Client" }
+        'opencode'       { return (Join-Path $env:USERPROFILE '.config\opencode\skills') }
+        'claude'         { return (Join-Path $env:USERPROFILE '.claude\skills') }
+        # Codex reads user skills from ~/.agents/skills, not ~/.codex/skills.
+        'codex'          { return (Join-Path $env:USERPROFILE '.agents\skills') }
+        # Claude Desktop has no skills directory; skills are uploaded as a zip.
+        'claude-desktop' { return $null }
+        default          { throw "Unknown client: $Client" }
     }
 }
 
 function Get-CommandsRoot {
     param([string]$Client)
     switch ($Client) {
-        'opencode' { return (Join-Path $env:USERPROFILE '.config\opencode\commands') }
-        'claude'   { return (Join-Path $env:USERPROFILE '.claude\commands') }
-        default    { return $null }
+        'opencode'       { return (Join-Path $env:USERPROFILE '.config\opencode\commands') }
+        'claude'         { return (Join-Path $env:USERPROFILE '.claude\commands') }
+        # Codex has no slash-command directory; claude-desktop has no commands.
+        'codex'          { return $null }
+        'claude-desktop' { return $null }
+        default          { return $null }
     }
 }
 
@@ -95,6 +126,7 @@ function Install-OneSkill {
 
     $ok = $false
     foreach ($root in $TargetRoots) {
+        if (-not $root) { continue }          # claude-desktop: skills go via zip upload
         $dst = Join-Path $root $Id
         if (Test-Path $dst) {
             if ($Force) {
@@ -112,7 +144,42 @@ function Install-OneSkill {
         }
         $ok = $true
     }
+    # No skills directory at all (claude-desktop): the skill is still "available"
+    # because it is packaged into a zip further down.
+    if (@($TargetRoots | Where-Object { $_ }).Count -eq 0) { return $true }
     return $ok
+}
+
+function New-ClaudeDesktopSkillZips {
+    <#
+      Claude Desktop cannot read a skills directory. Each skill must be uploaded
+      by hand through Settings > Capabilities > Skills, so pre-build one zip per
+      skill. Layout: <id>.zip -> <id>/SKILL.md
+    #>
+    param([string[]]$Ids, [string]$VendorRoot, [string]$LocalRoot)
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
+    $outDir = Join-Path $PackRoot 'dist\claude-skills'
+    if (-not $DryRun) { New-Item -ItemType Directory -Path $outDir -Force | Out-Null }
+
+    $made = 0
+    foreach ($id in $Ids) {
+        $src = Join-Path $VendorRoot $id
+        if (-not (Test-Path $src)) { $src = Join-Path $LocalRoot $id }
+        if (-not (Test-Path (Join-Path $src 'SKILL.md'))) { continue }
+        $zip = Join-Path $outDir "$id.zip"
+        if ($DryRun) { Write-Ok "would build $zip"; $made++; continue }
+        if (Test-Path $zip) { Remove-Item $zip -Force }
+        try {
+            [IO.Compression.ZipFile]::CreateFromDirectory(
+                $src, $zip, [IO.Compression.CompressionLevel]::Optimal, $true)
+            $made++
+        } catch {
+            Write-Warn2 "zip failed for $id : $($_.Exception.Message)"
+        }
+    }
+    Write-Ok "$made skill zips in $outDir"
+    Write-Skip 'upload only the skills you need; Claude Desktop has no folder-based skill loading'
 }
 
 function Install-Commands {
@@ -205,7 +272,8 @@ function Register-OpenCodeMcp {
 
     if (-not $DryRun) {
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
-        $text = $h | ConvertTo-Json -Depth 20
+        # PS 5.1 pretty-prints empty arrays as multi-line brackets; collapse them.
+        $text = ($h | ConvertTo-Json -Depth 20) -replace '\[\s*\]', '[]'
         [IO.File]::WriteAllText($jsonPath, $text, (New-Object Text.UTF8Encoding($false)))
     }
     Write-Ok "wrote mcp.servers.$Name to $jsonPath"
@@ -222,6 +290,88 @@ function Register-ClaudeMcp {
         if ($LASTEXITCODE -eq 0) { Write-Ok "registered Claude MCP '$Name'" }
         else { Write-Warn2 "claude mcp add failed (exit $LASTEXITCODE)" }
     } catch { Write-Warn2 $_.Exception.Message }
+}
+
+function Register-ClaudeDesktopMcp {
+    <#
+      Claude Desktop is a GUI app: it has no skills directory and no slash
+      commands. It only reads MCP servers from claude_desktop_config.json.
+    #>
+    param([string]$Name, [string]$Exe)
+
+    $dir  = Join-Path $env:APPDATA 'Claude'
+    $path = Join-Path $dir 'claude_desktop_config.json'
+
+    if (Test-Path $path) {
+        try {
+            $cfg = Get-Content $path -Raw -Encoding UTF8 | ConvertFrom-Json
+            $backup = "$path.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+            if (-not $DryRun) { Copy-Item $path $backup -Force }
+            Write-Skip "backed up Claude Desktop config to $backup"
+        } catch {
+            Write-Warn2 "cannot parse $path; not auto-merging"
+            Write-Host '  Merge config\claude_desktop_config.json by hand.'
+            return $false
+        }
+    } else {
+        $cfg = [pscustomobject]@{}
+    }
+
+    $h = ConvertTo-Hashtable $cfg
+    if ($null -eq $h) { $h = @{} }
+    if (-not $h.ContainsKey('mcpServers') -or -not ($h['mcpServers'] -is [hashtable])) { $h['mcpServers'] = @{} }
+    $h['mcpServers'][$Name] = @{
+        command = $Exe
+        args    = @()
+        env     = @{ FLUIDS_MCP_LOG_LEVEL = 'INFO'; FLUIDS_MCP_MAX_STEPS = '30' }
+    }
+
+    if (-not $DryRun) {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        # PS 5.1 pretty-prints empty arrays as multi-line brackets; collapse them.
+        $text = ($h | ConvertTo-Json -Depth 20) -replace '\[\s*\]', '[]'
+        [IO.File]::WriteAllText($path, $text, (New-Object Text.UTF8Encoding($false)))
+    }
+    Write-Ok "wrote mcpServers.$Name to $path"
+    Write-Skip 'quit Claude Desktop from the tray and reopen it; closing the window is not enough'
+    return $true
+}
+
+function Register-CodexMcp {
+    <#
+      Codex reads MCP servers from ~/.codex/config.toml. There is no CLI
+      subcommand that writes this, so append a block if it is not present.
+    #>
+    param([string]$Name, [string]$Exe)
+
+    $dir  = Join-Path $env:USERPROFILE '.codex'
+    $path = Join-Path $dir 'config.toml'
+
+    if ((Test-Path $path) -and (Select-String -Path $path -Pattern "^\[mcp_servers\.$([regex]::Escape($Name))\]" -Quiet)) {
+        Write-Skip "$Name already present in $path"
+        return $true
+    }
+    if ($DryRun) { Write-Ok "would append [mcp_servers.$Name] to $path"; return $true }
+
+    New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    # TOML literal strings are single-quoted, so Windows backslashes need no escaping.
+    $block = @(
+        ''
+        "[mcp_servers.$Name]"
+        "command = '$Exe'"
+        'args = []'
+        'startup_timeout_sec = 45'
+        'tool_timeout_sec = 600'
+        ''
+        "[mcp_servers.$Name.env]"
+        'FLUIDS_MCP_LOG_LEVEL = "INFO"'
+        'FLUIDS_MCP_MAX_STEPS = "30"'
+        ''
+    ) -join "`r`n"
+
+    [IO.File]::AppendAllText($path, $block, (New-Object Text.UTF8Encoding($false)))
+    Write-Ok "appended [mcp_servers.$Name] to $path"
+    return $true
 }
 
 function Get-Python {
@@ -315,7 +465,10 @@ if ($WithARS) {
 
 # 3. install skills
 $targets = @()
-foreach ($c in $Clients) { $targets += (Get-SkillsRoot $c) }
+foreach ($c in $Clients) {
+    $r = Get-SkillsRoot $c
+    if ($r) { $targets += $r } else { Write-Skip "$c has no skills directory (skills are uploaded as a zip)" }
+}
 Write-Step "Installing skills to:"
 $targets | ForEach-Object { Write-Host "  - $_" }
 
@@ -336,6 +489,12 @@ foreach ($c in $Clients) { $cmdRoots += (Get-CommandsRoot $c) }
 Write-Step 'Installing slash commands'
 Install-Commands -TargetRoots $cmdRoots
 
+# 4b. Claude Desktop skill zips
+if ($Clients -contains 'claude-desktop') {
+    Write-Step 'Building Claude Desktop skill zips'
+    New-ClaudeDesktopSkillZips -Ids ($selected + $localIds) -VendorRoot $vendorRoot -LocalRoot $localRoot
+}
+
 # 5. Fluent MCP
 $mcpOk = $false
 if ($WithFluent) {
@@ -355,16 +514,29 @@ if ($WithFluent) {
             Write-Skip "venv exists: $venv"
         }
         if (-not $DryRun) {
-            & $venvPy -m pip install --upgrade pip --quiet
-            & $venvPy -m pip install --upgrade ansys-fluent-mcp --quiet
-            if ($LASTEXITCODE -eq 0) { Write-Ok 'installed ansys-fluent-mcp' }
-            else { Write-Warn2 'pip install failed; run manually: pip install ansys-fluent-mcp' }
+            # pip can fail on a broken venv or a network hiccup; that must not
+            # abort the whole install, otherwise skills are half-written.
+            $pipOk = $false
+            try {
+                & $venvPy -m pip install --upgrade pip --quiet 2>&1 | Out-Null
+                & $venvPy -m pip install --upgrade ansys-fluent-mcp --quiet 2>&1 | Out-Null
+                $pipOk = ($LASTEXITCODE -eq 0)
+            } catch {
+                $pipOk = $false
+            }
+            if ($pipOk) {
+                Write-Ok 'installed ansys-fluent-mcp'
+            } else {
+                Write-Warn2 'pip install failed; run manually:'
+                Write-Host "       `"$venvPy`" -m pip install ansys-fluent-mcp"
+            }
         }
         $exe = Join-Path $venv 'Scripts\ansys-fluent-mcp.exe'
         if ((Test-Path $exe) -or $DryRun) {
-            if ($Clients -contains 'opencode') { $mcpOk = Register-OpenCodeMcp -Name 'ansys-fluent' -Exe $exe }
-            if ($Clients -contains 'claude')   { Register-ClaudeMcp -Name 'ansys-fluent' -Exe $exe }
-            if ($Clients -contains 'codex')    { Write-Skip 'Codex: copy config\codex.config.toml into ~/.codex/config.toml' }
+            if ($Clients -contains 'opencode')       { $mcpOk = Register-OpenCodeMcp -Name 'ansys-fluent' -Exe $exe }
+            if ($Clients -contains 'claude')         { Register-ClaudeMcp -Name 'ansys-fluent' -Exe $exe }
+            if ($Clients -contains 'codex')          { [void](Register-CodexMcp -Name 'ansys-fluent' -Exe $exe) }
+            if ($Clients -contains 'claude-desktop') { [void](Register-ClaudeDesktopMcp -Name 'ansys-fluent' -Exe $exe) }
         } else {
             Write-Warn2 "MCP entry point not found: $exe"
         }
@@ -400,7 +572,20 @@ if ($DryRun) {
 if ($missing.Count -gt 0) { Write-Warn2 "$($missing.Count) skills missing (see install-report.txt)" }
 Write-Host ''
 Write-Host '  Next steps:' -ForegroundColor Cyan
-Write-Host '    1. Open OpenCode and run:  /paper   or   /cfd'
-Write-Host '    2. Check:                  .\verify.ps1'
-Write-Host '    3. Read:                   docs\01-技能路由表.md'
+if ($Clients -contains 'opencode') {
+    Write-Host '    OpenCode       : open OpenCode, then  /paper   or   /cfd'
+}
+if ($Clients -contains 'claude') {
+    Write-Host '    Claude Code    : claude , then         /paper   or   /cfd'
+}
+if ($Clients -contains 'codex') {
+    Write-Host '    Codex CLI      : codex , then          /skills  and pick journal-pipeline'
+    Write-Host '                     (or type $journal-pipeline to invoke it directly)'
+}
+if ($Clients -contains 'claude-desktop') {
+    Write-Host '    Claude Desktop : Settings > Capabilities > Skills > upload dist\claude-skills\*.zip'
+    Write-Host '                     MCP only took effect after a full quit from the tray'
+}
+Write-Host '    Verify         : .\verify.ps1'
+Write-Host '    Docs           : docs\01-技能路由表.md   docs\08-客户端接入.md'
 Write-Host ''

@@ -2,14 +2,41 @@
 <#
 .SYNOPSIS
   Verify the SCI Research Pack installation.
+
+.DESCRIPTION
+  Checks skills, slash commands and MCP registration per client. Each client
+  stores these in a different place, so pass the same -Clients you installed
+  with:
+
+    .\verify.ps1                                   # OpenCode only
+    .\verify.ps1 -Clients opencode,claude,codex    # several at once
+    .\verify.ps1 -Clients claude-desktop           # MCP + skill zips
 #>
 param(
+    # Comma separated or array; validated below so `powershell -File` works.
     [string[]]$Clients = @('opencode'),
+
     [string]$PackRoot = $PSScriptRoot
 )
 
 $ErrorActionPreference = 'Continue'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
+
+$ValidClients = @('opencode', 'claude', 'codex', 'claude-desktop')
+$Clients = @(
+    $Clients |
+        ForEach-Object { $_ -split ',' } |
+        ForEach-Object { $_.Trim() } |
+        Where-Object { $_ } |
+        Select-Object -Unique
+)
+if ($Clients.Count -eq 0) { $Clients = @('opencode') }
+$unknown = @($Clients | Where-Object { $ValidClients -notcontains $_ })
+if ($unknown.Count -gt 0) {
+    Write-Host "  [XX] unknown client: $($unknown -join ', ')" -ForegroundColor Red
+    Write-Host "       expected: $($ValidClients -join ', ')"
+    exit 1
+}
 
 function Line($label, $value, $status) {
     $color = switch ($status) {
@@ -19,6 +46,24 @@ function Line($label, $value, $status) {
         default { 'Gray' }
     }
     Write-Host ("  {0,-22} {1}" -f $label, $value) -ForegroundColor $color
+}
+
+function Get-SkillsRoot([string]$Client) {
+    switch ($Client) {
+        'opencode'       { Join-Path $env:USERPROFILE '.config\opencode\skills' }
+        'claude'         { Join-Path $env:USERPROFILE '.claude\skills' }
+        # Codex user-scope skills live in ~/.agents/skills, not ~/.codex/skills.
+        'codex'          { Join-Path $env:USERPROFILE '.agents\skills' }
+        'claude-desktop' { $null }
+    }
+}
+
+function Get-CommandsRoot([string]$Client) {
+    switch ($Client) {
+        'opencode' { Join-Path $env:USERPROFILE '.config\opencode\commands' }
+        'claude'   { Join-Path $env:USERPROFILE '.claude\commands' }
+        default    { $null }
+    }
 }
 
 $expected = @(
@@ -33,15 +78,20 @@ $expected = @(
 Write-Host ''
 Write-Host '  SCI Research Pack  ·  verification' -ForegroundColor Cyan
 Write-Host '  -------------------------------------------------' -ForegroundColor DarkGray
-Write-Host "  pack: $PackRoot"
+Write-Host "  pack    : $PackRoot"
+Write-Host "  clients : $($Clients -join ', ')"
+
+# ------------------------------------------------------------------ skills
 
 foreach ($c in $Clients) {
-    $root = switch ($c) {
-        'opencode' { Join-Path $env:USERPROFILE '.config\opencode\skills' }
-        'claude'   { Join-Path $env:USERPROFILE '.claude\skills' }
-        'codex'    { Join-Path $env:USERPROFILE '.codex\skills' }
+    $root = Get-SkillsRoot $c
+    if (-not $root) {
+        Write-Host "`n[$c] no skills directory by design" -ForegroundColor Cyan
+        Line 'skills' 'uploaded as zip in the Claude app' 'warn'
+        continue
     }
-    Write-Host "`n[$c] $root" -ForegroundColor Cyan
+
+    Write-Host "`n[$c skills] $root" -ForegroundColor Cyan
     if (-not (Test-Path $root)) {
         Line 'skills dir' 'missing' 'bad'
         continue
@@ -61,52 +111,102 @@ foreach ($c in $Clients) {
     }
 }
 
-# commands
-$cmdRoot = Join-Path $env:USERPROFILE '.config\opencode\commands'
-Write-Host "`n[commands] $cmdRoot" -ForegroundColor Cyan
-if (Test-Path $cmdRoot) {
-    $cmds = Get-ChildItem $cmdRoot -Filter '*.md'
-    Line 'slash commands' "$($cmds.Count) ($(($cmds | ForEach-Object { '/' + $_.BaseName }) -join ' '))" 'ok'
-} else {
-    Line 'slash commands' 'missing' 'warn'
-}
+# ---------------------------------------------------------------- commands
 
-# mcp config
-Write-Host "`n[MCP]" -ForegroundColor Cyan
-$cfgPath = Join-Path $env:USERPROFILE '.config\opencode\opencode.json'
-$cfgJsonc = Join-Path $env:USERPROFILE '.config\opencode\opencode.jsonc'
-$cfg = $null
-if (Test-Path $cfgPath) {
-    try { $cfg = Get-Content $cfgPath -Raw -Encoding UTF8 | ConvertFrom-Json } catch { }
-    if ($cfg -and $cfg.mcp -and $cfg.mcp.servers -and $cfg.mcp.servers.'ansys-fluent') {
-        Line 'ansys-fluent' 'configured' 'ok'
+foreach ($c in $Clients) {
+    $cmdRoot = Get-CommandsRoot $c
+    if (-not $cmdRoot) { continue }
+    Write-Host "`n[$c commands] $cmdRoot" -ForegroundColor Cyan
+    if (Test-Path $cmdRoot) {
+        $cmds = Get-ChildItem $cmdRoot -Filter '*.md'
+        Line 'slash commands' "$($cmds.Count) ($(($cmds | ForEach-Object { '/' + $_.BaseName }) -join ' '))" 'ok'
     } else {
-        Line 'ansys-fluent' 'not configured' 'warn'
+        Line 'slash commands' 'missing' 'warn'
     }
-} elseif (Test-Path $cfgJsonc) {
-    $hit = Select-String -Path $cfgJsonc -Pattern 'ansys-fluent' -Quiet
-    if ($hit) { Line 'ansys-fluent' 'configured (jsonc)' 'ok' }
-    else { Line 'ansys-fluent' 'not configured (jsonc)' 'warn' }
-} else {
-    Line 'opencode config' 'not found' 'warn'
 }
 
-# venv / package
+# ------------------------------------------------------------- desktop zips
+
+if ($Clients -contains 'claude-desktop') {
+    $zipDir = Join-Path $PackRoot 'dist\claude-skills'
+    Write-Host "`n[claude-desktop skill zips] $zipDir" -ForegroundColor Cyan
+    if (Test-Path $zipDir) {
+        $zips = Get-ChildItem $zipDir -Filter '*.zip'
+        Line 'skill zips' "$($zips.Count) ready to upload" 'ok'
+    } else {
+        Line 'skill zips' 'not built (re-run install with claude-desktop)' 'warn'
+    }
+}
+
+# --------------------------------------------------------------------- MCP
+
+Write-Host "`n[MCP: ansys-fluent]" -ForegroundColor Cyan
+
+function Test-McpJson([string]$Path, [string]$Property) {
+    if (-not (Test-Path $Path)) { return $false }
+    try {
+        $cfg = Get-Content $Path -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($Property -eq 'mcp.servers') {
+            return [bool]($cfg.mcp -and $cfg.mcp.servers -and $cfg.mcp.servers.'ansys-fluent')
+        }
+        return [bool]($cfg.mcpServers -and $cfg.mcpServers.'ansys-fluent')
+    } catch { return $false }
+}
+
+if ($Clients -contains 'opencode') {
+    $p = Join-Path $env:USERPROFILE '.config\opencode\opencode.json'
+    $pj = Join-Path $env:USERPROFILE '.config\opencode\opencode.jsonc'
+    if (Test-McpJson $p 'mcp.servers') { Line 'opencode' 'configured' 'ok' }
+    elseif ((Test-Path $pj) -and (Select-String -Path $pj -Pattern 'ansys-fluent' -Quiet)) {
+        Line 'opencode' 'configured (jsonc)' 'ok'
+    }
+    else { Line 'opencode' 'not configured' 'warn' }
+}
+
+if ($Clients -contains 'claude') {
+    $p = Join-Path $env:USERPROFILE '.claude.json'
+    if (Test-McpJson $p 'mcpServers') { Line 'claude code' 'configured' 'ok' }
+    else { Line 'claude code' 'not configured' 'warn' }
+}
+
+if ($Clients -contains 'codex') {
+    $p = Join-Path $env:USERPROFILE '.codex\config.toml'
+    if ((Test-Path $p) -and (Select-String -Path $p -Pattern '^\[mcp_servers\.ansys-fluent\]' -Quiet)) {
+        Line 'codex' "configured in $p" 'ok'
+    } else {
+        Line 'codex' 'not configured' 'warn'
+    }
+}
+
+if ($Clients -contains 'claude-desktop') {
+    $p = Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'
+    if (Test-McpJson $p 'mcpServers') { Line 'claude desktop' "configured in $p" 'ok' }
+    else { Line 'claude desktop' 'not configured' 'warn' }
+}
+
+# ------------------------------------------------------------------ python
+
 Write-Host "`n[Python]" -ForegroundColor Cyan
 $venvPy = Join-Path $PackRoot '.venv\Scripts\python.exe'
 if (Test-Path $venvPy) {
     Line 'venv' $venvPy 'ok'
-    $ver = & $venvPy -c "import importlib.metadata as m;print(m.version('ansys-fluent-mcp'))" 2>$null
-    if ($LASTEXITCODE -eq 0) { Line 'ansys-fluent-mcp' $ver 'ok' }
+    # A broken venv (interpreter moved or replaced) throws at launch; report it
+    # instead of dumping a native-command stack trace.
+    $ver = $null; $fv = $null
+    try { $ver = & $venvPy -c "import importlib.metadata as m;print(m.version('ansys-fluent-mcp'))" 2>$null } catch { $ver = $null }
+    if ($LASTEXITCODE -eq 0 -and $ver) { Line 'ansys-fluent-mcp' $ver 'ok' }
+    elseif (-not $ver) { Line 'ansys-fluent-mcp' 'not installed or venv broken' 'bad' }
     else { Line 'ansys-fluent-mcp' 'not installed' 'bad' }
-    $fv = & $venvPy -c "import importlib.metadata as m;print(m.version('ansys-fluent-core'))" 2>$null
-    if ($LASTEXITCODE -eq 0) { Line 'ansys-fluent-core' $fv 'ok' }
+    try { $fv = & $venvPy -c "import importlib.metadata as m;print(m.version('ansys-fluent-core'))" 2>$null } catch { $fv = $null }
+    if ($LASTEXITCODE -eq 0 -and $fv) { Line 'ansys-fluent-core' $fv 'ok' }
+    elseif (-not $fv) { Line 'ansys-fluent-core' 'not installed or venv broken' 'warn' }
     else { Line 'ansys-fluent-core' 'not installed' 'warn' }
 } else {
     Line 'venv' 'not created (use -WithFluent)' 'warn'
 }
 
-# Fluent install
+# ------------------------------------------------------------------- fluent
+
 Write-Host "`n[Ansys Fluent]" -ForegroundColor Cyan
 $roots = @()
 if ($env:AWP_ROOT261) { $roots += $env:AWP_ROOT261 }
@@ -126,6 +226,13 @@ if ($roots.Count -gt 0) {
 $lic = $env:ANSYSLMD_LICENSE_FILE
 if ($lic) { Line 'license server' $lic 'ok' } else { Line 'license server' 'env not set (may still work)' 'warn' }
 
+# ---------------------------------------------------------------- next step
+
 Write-Host "`n  -------------------------------------------------" -ForegroundColor DarkGray
-Write-Host '  If everything above is OK, open OpenCode and run /paper or /cfd.' -ForegroundColor Cyan
+Write-Host '  What to run next:' -ForegroundColor Cyan
+if ($Clients -contains 'opencode')       { Write-Host '    OpenCode       : /paper   or   /cfd' }
+if ($Clients -contains 'claude')         { Write-Host '    Claude Code    : /paper   or   /cfd' }
+if ($Clients -contains 'codex')          { Write-Host '    Codex          : /skills  then pick journal-pipeline' }
+if ($Clients -contains 'claude-desktop') { Write-Host '    Claude Desktop : Settings > Capabilities > Skills > upload a zip' }
+Write-Host '    Details        : docs\08-客户端接入.md' -ForegroundColor DarkGray
 Write-Host ''

@@ -4,6 +4,9 @@
 
 > 原则：MCP 工具会占用模型上下文。一次只加你当前真正要用的。
 
+> 下面以 OpenCode 命令为例。Claude Code / Codex / Claude Desktop 的配置文件位置不同，
+> 见 [`docs/08-客户端接入.md`](../docs/08-客户端接入.md)。
+
 ---
 
 ## 1. Zotero（文献库）★ 推荐
