@@ -1,0 +1,121 @@
+name: nature-figure
+version: 2.0.0
+description: >
+  Declarative manifest for the static/dynamic split. SKILL.md uses this to
+  decide which fragments to load for a given figure request. The main axis is
+  the plotting backend (Python or R). The first plotting use should establish
+  a saved user preference; later tasks reuse that preference unless the user
+  explicitly changes it. The large body of design, API, pattern, and QA
+  material stays in on-demand references.
+
+always_load:
+  # Skill-local core (figure does not use the prose-oriented _shared layer)
+  - static/core/contract.md
+  - static/core/stance.md
+
+routes:
+  openrouter_image_generation:
+    detect: |
+      Use this route only when the user explicitly asks for OpenRouter, GPT
+      Image 2, image-generation API output, AI-generated paper schematics,
+      graphical abstracts, concept illustrations, or mechanism diagrams. This
+      route skips the Python/R backend gate because it generates a raster/vector
+      image draft through an external image API rather than plotting data.
+    reference: references/openrouter-image-generation.md
+    script: scripts/generate_openrouter_schematic.py
+
+preference:
+  backend_script: scripts/nature_figure_backend.py
+  config_env: NATURE_FIGURE_CONFIG
+  default_config: ~/.config/nature-skills/nature-figure.json
+  behavior: |
+    For plotting tasks, first honor an explicit Python/R choice, then a clearly
+    language-specific input workflow, then the saved preference returned by the
+    backend script. If none exists, ask the user once and save the answer.
+
+axes:
+  backend:
+    detect: |
+      BLOCKING GATE WITH PERSISTED PREFERENCE. Determine the plotting backend
+      from an explicit user choice, a clearly language-specific input
+      file/workflow, or the saved preference returned by
+      scripts/nature_figure_backend.py get. If no saved preference exists, ask
+      exactly one concise question — "Python or R? I will remember this as your
+      default." — and stop. Save the answer with the backend preference script
+      before proceeding. Only recommend a backend when the user explicitly asks
+      you to choose; in that case use references/backend-selection.md, state the
+      reason, save the selected backend, then proceed. Once selected, the
+      backend is exclusive for all drawing, previewing, exporting, and visual QA.
+    values:
+      python:  static/fragments/backend/python.md
+      r:       static/fragments/backend/r.md
+    multi: false
+
+qa_tooling:
+  purpose: |
+    Dependency-free preflight and audit tools. They exist to stop a figure
+    asserting more than its data supports, and to make the prose rules in
+    references/qa-contract.md executable. Run them before delivery, not instead
+    of reading the contract.
+  exit_codes: |
+    0 PASS, 1 FAIL, 2 ERROR (usage or I/O), 3 NOT RUN (dependency absent),
+    4 NOT AUDITABLE (the input cannot answer the question). 2, 3 and 4 are not
+    passes: a caller that treats "not 1" as success ships an unchecked figure.
+  scripts:
+    - condition: before rendering, to preflight a figure source file for size, font, export and axis-integrity problems
+      path: scripts/validate_figure.py
+      backend: python and R source
+    - condition: after export, to check that no printed text falls below the journal's minimum point size
+      path: scripts/audit_pdf_text.py
+      note: run it on the per-panel PDFs; a composite assembled with scaled placement reports NOT AUDITABLE by design
+    - condition: after export, to find text collisions, text crossed by strokes, and text clipped by the page
+      path: scripts/audit_figure_collisions.py
+      note: needs PyMuPDF; without it the tool reports NOT RUN rather than passing
+    - condition: multi-panel figures, to check that panels a reader perceives as aligned actually are
+      path: scripts/audit_panel_alignment.py
+      note: consumes a layout manifest; call require_matplotlib_panel_alignment() after the final draw
+    - condition: any figure whose values are interpolated, or whose value labels are positioned programmatically
+      path: scripts/figure_safety.py
+    - condition: loading the table behind a quantitative panel, and recording which rows were used and which were excluded
+      path: scripts/figure_source_data.py
+
+references:
+  on_demand:
+    - condition: convert a user request into core conclusion, evidence hierarchy, panel map, and review-risk checks
+      path: references/figure-contract.md
+    - condition: user has not chosen Python/R, asks for a recommendation, or a mixed Python/R workflow is possible
+      path: references/backend-selection.md
+    - condition: user chooses R or provides R scripts/templates/data
+      path: references/r-workflow.md
+    - condition: adapt a user-provided or private R template collection without exposing source paths
+      path: references/r-template-index.md
+    - condition: before final delivery, revision package, microscopy/blot figure, or journal-specific audit
+      path: references/qa-contract.md
+    - condition: typography, color theory, layout rationale, export policy
+      path: references/design-theory.md
+    - condition: Python PALETTE, helper function signatures, validation rules
+      path: references/api.md
+    - condition: "Python layout patterns: hero panels, legend-only axes, dark image plates, asymmetric layouts"
+      path: references/common-patterns.md
+    - condition: "real Nature page archetypes: schematic-led composites, dark image plates, clinical triptychs, asymmetric hero layouts"
+      path: references/nature-2026-observations.md
+    - condition: "OpenRouter/GPT Image 2 route: AI-generated graphical abstracts, mechanism diagrams, paper schematics, or concept illustrations"
+      path: references/openrouter-image-generation.md
+    - condition: writing or auditing figure/table legend text — Fig. N | title, panel style, stats in legend, Source Data boilerplate, attribution
+      path: references/figure-legend-conventions.md
+    - condition: "building a multi-panel figure panel-first then assembling the composite, and packaging it as an auditable delivery bundle: per-panel source files exported at true print size, review at 1:1 before assembly, LaTeX or drawing-program assembly with millimetre placement coordinates, figure directory layout and hygiene, canonical-version declaration, source-data CSV carrying an owning manuscript section per asserted cell, four-state status markers, AI-image policy by venue"
+      path: references/figure-delivery-bundle.md
+    - condition: "end-to-end walkthroughs: bars, trends, heatmaps"
+      path: references/tutorials.md
+    - condition: "radar, 3D sphere, fill_between, scatter patterns"
+      path: references/chart-types.md
+    - condition: locating a worked example for a claim shape, or judging an external example script before reusing it
+      path: references/demos.md
+    - condition: "planning or auditing a multi-panel figure as an evidence chain: which panel does which inferential job, how figure order mirrors the manuscript's claim escalation, whether a panel is necessary"
+      path: references/multipanel-evidence-architecture.md
+    - condition: "the target is the flagship journal Nature: file formats, Extended Data, initial-review versus accepted-in-principle production files"
+      path: references/nature-article-requirements.md
+    - condition: reusing an example script, a preview image, or a user-provided plotting template with new data
+      path: references/asset-adaptation.md
+    - condition: planning, generating, revising, or auditing a graphical abstract with AI assistance
+      path: references/ai-graphical-abstract-workflow.md

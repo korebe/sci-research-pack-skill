@@ -1,0 +1,14 @@
+# Codex CLI MCP configuration snippet.
+# Merge into ~/.codex/config.toml (create the file if it does not exist).
+# Replace the path with your real .venv path.
+
+[mcp_servers.ansys-fluent]
+command = 'C:\Users\ASUS\Desktop\中转战\sci-research-pack\.venv\Scripts\ansys-fluent-mcp.exe'
+args = []
+cwd = 'C:\Users\ASUS\Desktop\中转战\sci-research-pack'
+startup_timeout_sec = 45
+tool_timeout_sec = 600
+
+[mcp_servers.ansys-fluent.env]
+FLUIDS_MCP_LOG_LEVEL = "INFO"
+FLUIDS_MCP_MAX_STEPS = "30"

@@ -1,0 +1,142 @@
+---
+name: scientific-prose-style
+description: "Prose-quality rules for writing scientific manuscript text: abstract, introduction, results, discussion. The headline rule is a strict em-dash budget: the long dash (—) is overused and reads as a stylistic tic, so cap it and rewrite with commas, colons, parentheses, or a period. Also caps semicolons and colons, the usual replacements, and covers hedging, sentence rhythm, paragraph openers, and AI-sounding prose (去 AI 味, AI 味重, sounds AI-generated) with an information test, a corpus-checked list of tells and a detection script. Load whenever drafting or revising manuscript prose (not figures; that is figure-planner)."
+license: Apache-2.0
+---
+
+# scientific-prose-style
+
+Rules for the *prose* of a scientific paper — the sentences of the abstract,
+introduction, results, and discussion. Load this whenever you draft or revise
+manuscript text. (Figure planning lives in `figure-planner`; this skill
+is about words on the page.)
+
+This skill owns punctuation, rhythm and word-level tells, and it runs last. When a passage is hard to follow
+for reasons punctuation cannot fix, such as an unstable claim, a missing evidence link, or a
+paragraph whose job is unclear, fix that first with `manuscript-optimizer` or `scientific-writing`.
+Re-punctuating a sentence whose scientific role is wrong does not make it readable, and polishing a
+drifted Review before its `review-article-architecture` drift audit makes the drift harder to see.
+
+One layer sits directly above this one. `anti-defensive-writing` owns authorial posture at the
+paragraph level: what a paragraph leads with, where a caveat sits, and whether a sentence exists to
+advance the argument or to pre-empt an objection. Run it first. Stripping defensive scaffolding
+rewrites paragraph openers and sentence boundaries, which is exactly what Rule 3 and Rule 5 below
+then have to settle, so running this skill first means doing that work twice. Rule 3 here calibrates
+hedges within a sentence; deciding whether the hedge should exist at all belongs upstairs.
+
+## Rule 1: Em-dash budget (the headline rule)
+
+The long em-dash (`—`) is the single most overused mark in generated scientific
+prose. It feels punchy in isolation but a reader hits three or four per paragraph
+and it reads as a stylistic tic, not as writing. **Cap it.**
+
+- **At most one em-dash per paragraph, and none in the abstract.** If a sentence
+  already has one, the next clause that wants a dash gets a different mark.
+- **Never use a *pair* of em-dashes to bracket an aside** if a comma pair or
+  parentheses would do — the double dash is the worst offender.
+- Prefer, in rough order: **comma** (mild pause), **colon** (a list or an
+  expansion of what precedes), **parentheses** (a true aside the sentence reads
+  fine without), or **split into two sentences** (the strongest fix for a long
+  dash-spliced line).
+
+### Substitution table
+
+| Em-dash use | Replace with | Example fix |
+|---|---|---|
+| Pause before a summary/payoff | colon | `...never been tested — this is our entry point.` → `...never been tested. This is our entry point.` |
+| Bracketed aside (pair of dashes) | commas or parentheses | `no model — including ESM — beats chance` → `no model, including ESM, beats chance` |
+| Appositive / renaming | comma | `allele-resolution prediction — telling apart variants` → `allele-resolution prediction, i.e. telling variants apart,` |
+| Abrupt contrast | period + connective, or "but" | `real but sub-threshold — the effect vanishes` → `real but sub-threshold: the effect vanishes` |
+| Range or span (this is fine) | keep an **en-dash** `–`, not em | `370–1000 cells` stays `370–1000` |
+
+### Before → after (from a real over-dashed abstract)
+
+**Before (5 em-dashes, tic-heavy):**
+> Starting from the hardest instance of the problem — allele-resolution
+> prediction, distinguishing many coding variants of the same gene — we assemble
+> a benchmark, and find this is a measurement limit, not a model limit — a
+> split-half floor shows the distance is no larger than sampling noise.
+
+**After (0 em-dashes, same content):**
+> We start from the hardest instance of the problem: allele-resolution
+> prediction, which distinguishes many coding variants of the same gene. On the
+> benchmark we assemble, the ceiling turns out to be a measurement limit rather
+> than a model limit. A split-half floor analysis shows the perturbation-versus-
+> control distance is no larger than the sampling noise between two halves of a
+> variant's own cells.
+
+Note what the rewrite does: promotes one clause to its own sentence, turns the
+bracketed aside into a relative clause, and swaps the contrast dash for "rather
+than." The prose is calmer and each sentence carries one idea.
+
+## Rule 2: Don't trade the dash for a colon or semicolon tic
+
+Colons and semicolons are the natural replacements, and the same overuse applies.
+
+- **Colons:** at most one per sentence. If every sentence in a paragraph ends
+  `...: <expansion>`, you have just moved the tic.
+- **Semicolons:** none in the abstract, and at most one per paragraph elsewhere.
+  Published prose rarely uses them. In `paper-workflow`'s section evidence, 3 of
+  23 typeset method-paper abstracts and 1 of 12 `Nature` abstracts have one, and
+  three quarters of the Results and Discussion paragraphs have none. Two clauses
+  joined by a semicolon are usually two sentences. Semicolons that separate list
+  items already containing commas, or statistics inside parentheses, do not count.
+
+Vary the repair. Most become periods, some become commas or a plain connective
+(`and`, `but`, `so`).
+
+## Rule 3: Hedge once, not thrice
+
+Scientific prose stacks hedges (`may possibly suggest that ... could in principle
+...`). State the claim with one qualifier and the confidence level, then stop.
+`These results suggest X` — not `These results may tentatively be taken to
+suggest that X could hold`.
+
+## Rule 4: Vary sentence length, one idea per sentence
+
+A paragraph of uniformly long, clause-heavy sentences is as fatiguing as the
+dash tic. Follow a long sentence with a short one. If a sentence has three
+clauses joined by dashes, semicolons, and "and," it is three sentences.
+
+## Rule 5: Openers and connectives
+
+- Don't open consecutive paragraphs with the same word (`We ... We ... We ...`).
+- Prefer plain connectives (`but`, `so`, `because`, `here`) over heavy ones
+  (`moreover`, `furthermore`, `additionally`) unless enumerating.
+
+## Rule 6: Every word carries information (AI tells)
+
+Prose reads as machine-written when words carry nothing: an intensifier on a plain fact
+(`ultimately`, `a clear boundary`), a frame that inflates a modest point (`not only ... but`,
+`in its own right`), a sentence that repeats the last one (`In this way, ...`), or vocabulary that
+published papers almost never use (`delve`, `underscore`, `pivotal`, `shed light`). Apply the
+information test: delete the word or sentence, and if the reader loses no fact, number, condition
+or link, leave it deleted. Never swap a tell for a synonym, and never reword a frame (`a decision problem as well as a modelling one` is the same frame): replace it with its content.
+
+Most words called AI vocabulary are common in published papers (`robust`, `moreover`, `notably`,
+`highlight`), so do not cut by word list. [references/ai-tells.md](references/ai-tells.md) gives
+the families, the corpus rates and the cases that stay, and `scripts/ai_tells.py` lists candidates
+in a draft. Recaps, forward pointers and rhetorical questions are `anti-defensive-writing`'s
+commentary voice. Coined terms and weak subjects are `write-scientific-manuscript`'s.
+
+Body text carries no bold sentences. Emphasis comes from position, the first sentence of a
+paragraph, not from formatting.
+
+## Self-check before you hand prose back
+
+Run this on any abstract/intro/section you write:
+
+1. **Count em-dashes and semicolons.** More than one of either per paragraph, or
+   any in the abstract → rewrite the excess with the substitution table or as
+   separate sentences.
+2. **Count paragraph-opening words.** Repeated opener → vary it.
+3. **Read the longest sentence aloud.** If you run out of breath, split it.
+4. En-dashes in numeric ranges (`5–10`) and hyphens in compounds
+   (`single-cell`) are fine and are not counted against the budget.
+5. **Run the information test** on intensifiers, frames and closing sentences
+   (Rule 6). For a whole section, run `scripts/ai_tells.py` and read every
+   flagged line.
+
+---
+
+*Provenance: adapted from the Claude Science `scientific-prose-style` skill (Apache-2.0). Cross-references to figure skills were repointed to this repo's `figure-planner`, and a pointer to the `anti-defensive-writing` layer above this one was added.*

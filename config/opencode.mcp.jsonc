@@ -1,0 +1,24 @@
+{
+  // OpenCode V2 MCP configuration snippet.
+  // Merge into ~/.config/opencode/opencode.json (note: mcp.servers, NOT mcp directly).
+  // Replace the path with your real .venv path. Use absolute paths; ~ is not expanded here.
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "servers": {
+      "ansys-fluent": {
+        "type": "local",
+        "command": [
+          "C:\\Users\\ASUS\\Desktop\\中转战\\sci-research-pack\\.venv\\Scripts\\ansys-fluent-mcp.exe"
+        ],
+        "environment": {
+          "FLUIDS_MCP_LOG_LEVEL": "INFO",
+          "FLUIDS_MCP_MAX_STEPS": "30"
+        },
+        "timeout": {
+          "startup": 45000,
+          "execution": 600000
+        }
+      }
+    }
+  }
+}

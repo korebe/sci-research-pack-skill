@@ -1,0 +1,29 @@
+# Python / virtualenv
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Installed by install.ps1 -WithFluent
+install-report.txt
+
+# Optional module cloned by install.ps1 -WithARS (CC BY-NC 4.0, not redistributed)
+vendor/opencode-academic-research/
+vendor/*/
+
+# Local configuration / secrets
+.env
+config/*.local.json
+config/*.local.jsonc
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Editor backups
+*.bak
+*.bak-*
+*~

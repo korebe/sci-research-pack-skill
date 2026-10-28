@@ -1,0 +1,123 @@
+{
+  "name": "sci-research-pack",
+  "version": "1.0.0",
+  "built": "2026-10-28",
+  "description": "Curated top-journal writing skills + CFD/Fluent MCP integration pack",
+  "profiles": {
+    "core": "20 writing skills + 5 simulation skills + 2 local orchestrators",
+    "full": "30 writing skills + 11 simulation skills + 2 local orchestrators",
+    "writing": "30 writing skills + 2 local orchestrators",
+    "sim": "11 simulation skills + 2 local orchestrators"
+  },
+  "sources": [
+    {
+      "repo": "K-Dense-AI/scientific-agent-skills",
+      "url": "https://github.com/K-Dense-AI/scientific-agent-skills",
+      "stars": 54965,
+      "license": "MIT",
+      "skills": [
+        "fluidsim", "openpiv", "cantera", "pybamm", "simpy",
+        "uncertainty-and-units", "statistical-analysis",
+        "scientific-visualization", "literature-review", "paper-lookup"
+      ]
+    },
+    {
+      "repo": "Boom5426/Nature-Paper-Skills",
+      "url": "https://github.com/Boom5426/Nature-Paper-Skills",
+      "stars": 636,
+      "license": "MIT",
+      "skills": [
+        "paper-workflow", "scientific-writing", "write-scientific-manuscript",
+        "scientific-prose-style", "anti-defensive-writing",
+        "results-section-revision", "manuscript-optimizer",
+        "claim-source-verification", "citation-verifier",
+        "stats-reporting-audit", "figure-planner", "nature-figure",
+        "nature-portfolio-playbook", "paper-reviewer", "rebuttal-response",
+        "submission-audit"
+      ]
+    },
+    {
+      "repo": "labarba/sciwrite",
+      "url": "https://github.com/labarba/sciwrite",
+      "stars": 865,
+      "license": "CC-BY-4.0",
+      "skills": ["sciwrite"]
+    },
+    {
+      "repo": "WantongC/journal-adapt-writing-skill",
+      "url": "https://github.com/WantongC/journal-adapt-writing-skill",
+      "stars": 767,
+      "license": "MIT",
+      "skills": ["journal-adapt"]
+    },
+    {
+      "repo": "Haojae/scipilot-figure-skill",
+      "url": "https://github.com/Haojae/scipilot-figure-skill",
+      "stars": 2719,
+      "license": "MIT",
+      "skills": ["scipilot-figure"]
+    },
+    {
+      "repo": "eniktab/scientific-paper-writer",
+      "url": "https://github.com/eniktab/scientific-paper-writer",
+      "stars": 31,
+      "license": "MIT",
+      "skills": ["scientific-paper-writer"]
+    },
+    {
+      "repo": "Yuan1z0825/nature-skills",
+      "url": "https://github.com/Yuan1z0825/nature-skills",
+      "stars": 51019,
+      "license": "Apache-2.0",
+      "skills": [
+        "nature-writing", "nature-polishing", "nature-citation",
+        "nature-ref-verifier", "nature-reviewer", "nature-response",
+        "nature-paper2word", "nature-paper-xray", "nature-statistics",
+        "nature-shared"
+      ]
+    },
+    {
+      "repo": "cavoiie/fluent-cfd-skill",
+      "url": "https://github.com/cavoiie/fluent-cfd-skill",
+      "stars": 86,
+      "license": "MIT",
+      "skills": ["fluent-cfd"]
+    }
+  ],
+  "local_skills": [
+    {
+      "id": "journal-pipeline",
+      "purpose": "top-journal manuscript orchestrator (six gates)"
+    },
+    {
+      "id": "cfd-fluent-pipeline",
+      "purpose": "CFD/Fluent orchestrator (physics to validation)"
+    }
+  ],
+  "mcp": {
+    "required": [
+      {
+        "name": "ansys-fluent",
+        "package": "ansys-fluent-mcp",
+        "repo": "https://github.com/ansys/pyfluent-mcp",
+        "stars": 64,
+        "license": "Apache-2.0",
+        "requires": "licensed local Ansys Fluent"
+      }
+    ],
+    "optional": [
+      { "name": "zotero", "package": "zotero-mcp-server", "stars": 5608, "license": "MIT" },
+      { "name": "paper-search", "package": "paper-search-mcp", "stars": 2938, "license": "MIT" },
+      { "name": "arxiv", "package": "arxiv-mcp-server", "stars": 3237, "license": "Apache-2.0" }
+    ]
+  },
+  "optional_modules": [
+    {
+      "name": "Academic Research Skills (OpenCode port)",
+      "url": "https://github.com/timpara/opencode-academic-research",
+      "stars": 82,
+      "license": "CC-BY-NC-4.0",
+      "note": "Non-commercial. Installed only with -WithARS."
+    }
+  ]
+}

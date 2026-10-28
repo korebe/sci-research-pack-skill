@@ -1,0 +1,82 @@
+[
+  {
+    "query": "my advisor keeps saying my thesis chapter 2 is wordy and hard to follow. can you go through chapters/ch2_background.tex and tell me what to cut?",
+    "should_trigger": true,
+    "note": "Thesis chapter, not called a manuscript; the need is described, not named"
+  },
+  {
+    "query": "Reviewer 2 says our paper 'is difficult to read in places, especially Section 3.' Can you help me fix the prose in section3.tex before we resubmit?",
+    "should_trigger": true,
+    "note": "Writing fix buried inside a revision workflow"
+  },
+  {
+    "query": "is my abstract too long for Nature? it's 260 words:\n\nTurbulent channel flows over riblets are a classic test case for passive drag reduction. Riblets aligned with the flow reduce skin friction by up to 8% in laboratory experiments, but how this reduction scales with Reynolds number remains debated, because most data come from friction Reynolds numbers below 1000. In this paper we present direct numerical simulations of channel flow over trapezoidal riblets at friction Reynolds numbers of 180, 550 and 1000, on grids of up to 2.1 billion points. Simulations were run on 4096 GPUs for a total of 3.2 million GPU hours. We find that drag reduction decreases from 7.2% to 5.1% across this range, and that the decrease follows the log-law shift predicted by García-Mayoral and Jiménez. These results suggest that riblets remain useful at flight Reynolds numbers, but with smaller benefits than laboratory data imply.",
+    "should_trigger": true,
+    "note": "Abstract-review mode, casual; abstract now included (fixed in PR 8)"
+  },
+  {
+    "query": "Check whether I use the same names for my experimental groups throughout the Results and Discussion of draft_v4.docx — I think I switch between 'control cohort' and 'baseline group'.",
+    "should_trigger": true,
+    "note": "Keyword-consistency pass, specific"
+  },
+  {
+    "query": "tighten up my methods section pls, too many passive sentences",
+    "should_trigger": true,
+    "note": "Terse, targeted pass"
+  },
+  {
+    "query": "We're submitting to Physics of Fluids next week. Could you do a last pass on the introduction for clarity and flow? It's in paper/intro.md.",
+    "should_trigger": true,
+    "note": "Venue named, section review"
+  },
+  {
+    "query": "Can you check whether the statistical tests in my Results are appropriate? I used t-tests but some of the data look skewed.",
+    "should_trigger": false,
+    "note": "Near miss: statistical analysis, explicitly excluded"
+  },
+  {
+    "query": "Convert my reference list in refs.bib to APA 7th edition and fix the inconsistent author name formats.",
+    "should_trigger": false,
+    "note": "Near miss: citation formatting, explicitly excluded"
+  },
+  {
+    "query": "Please write the Introduction for my paper on lattice Boltzmann simulations of porous media flow. Here are my notes and the key references.",
+    "should_trigger": false,
+    "note": "Near miss: generating new text, not reviewing existing prose"
+  },
+  {
+    "query": "Act as a peer reviewer for this manuscript: is the methodology sound and are the conclusions supported by the data?",
+    "should_trigger": false,
+    "note": "Near miss: technical peer review, explicitly excluded"
+  },
+  {
+    "query": "The journal says figures must be 300 dpi TIFF and the main text under 6000 words. Can you check paper.tex meets their submission requirements?",
+    "should_trigger": false,
+    "note": "Near miss: submission formatting, not writing quality"
+  },
+  {
+    "query": "Can you make this email to my collaborator clearer? I'm asking whether she can share the PIV data from last summer's experiments.",
+    "should_trigger": false,
+    "note": "Near miss: clarity editing, but not a manuscript"
+  },
+  {
+    "query": "can u make this sentence less clunky? \"The determination of the optimal operating conditions was performed by means of a parametric study of the inlet temperature and flow rate.\"",
+    "should_trigger": true,
+    "note": "Single pasted sentence, casual"
+  },
+  {
+    "query": "Check this paragraph from my Methods for passive voice only: \"The samples were polished and etched. Hardness was measured with a Vickers indenter. It was observed that the indentation size depended on the load.\"",
+    "should_trigger": true,
+    "note": "Single pass on a short pasted excerpt"
+  },
+  {
+    "query": "Is this sentence grammatically correct? \"Each of the samples were tested twice.\"",
+    "should_trigger": false,
+    "note": "Near miss: a grammar question about one sentence, not a writing review"
+  },
+  {
+    "query": "Turn this paragraph from my paper into a three-tweet thread for a general audience.",
+    "should_trigger": false,
+    "note": "Near miss: rewriting for social media, not reviewing the manuscript"
+  }
+]
