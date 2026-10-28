@@ -107,10 +107,10 @@ foreach ($t in $targets) {
 
 Write-Host "`n  Done. MCP entries and the .venv were not touched." -ForegroundColor Green
 Write-Host ''
-Write-Host '  To remove the MCP server as well:' -ForegroundColor Cyan
+Write-Host '  To remove the MCP servers as well (ansys-fluent and/or origin-pro):' -ForegroundColor Cyan
 if ($Clients -contains 'opencode')       { Write-Host '    opencode mcp remove ansys-fluent   (or edit ~/.config/opencode/opencode.json)' }
 if ($Clients -contains 'claude')         { Write-Host '    claude mcp remove ansys-fluent     (or edit ~/.claude.json)' }
-if ($Clients -contains 'codex')          { Write-Host '    delete [mcp_servers.ansys-fluent] from ~/.codex/config.toml' }
-if ($Clients -contains 'claude-desktop') { Write-Host '    delete mcpServers.ansys-fluent from %APPDATA%\Claude\claude_desktop_config.json' }
+if ($Clients -contains 'codex')          { Write-Host '    delete [mcp_servers.*] blocks from ~/.codex/config.toml' }
+if ($Clients -contains 'claude-desktop') { Write-Host '    delete mcpServers.* from %APPDATA%\Claude\claude_desktop_config.json' }
 Write-Host '    Skills already uploaded to Claude Desktop must be removed in the app UI.' -ForegroundColor DarkGray
 Write-Host ''

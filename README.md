@@ -1,10 +1,11 @@
 # SCI Research Pack
 
 > 面向 **Nature / Cell / Science / SCI** 的论文写作 + CFD 仿真 Agent 整合包。
-> 43 个技能，1 个官方 Fluent MCP，6 个 slash command，支持 OpenCode / Claude Code / Codex / Claude Desktop。
+> 44 个技能，1 个官方 Fluent MCP，1 个可选 Origin MCP，6 个 slash command，支持 OpenCode / Claude Code / Codex / Claude Desktop。
 
 - **写作主线**：证据 → 结构 → 写作 → 润色 → 图表 → 统计 → 引用 → 模拟审稿 → 回复 → 投稿
 - **仿真主线**：物理 → 网格 → 求解 → 收敛 → 验证 → 出图 → Methods
+- **出图**：matplotlib / R（默认）或 OriginPro（可选，Windows）
 - **不造假**：不编引用、不编数据、不把"相关"写成"因果"
 
 ---
@@ -21,6 +22,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 
 # 2) 同时装 Fluent MCP（需要本机有 Fluent + 许可证）
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -WithFluent
+
+# 2b) 同时装 Origin MCP（Windows + OriginPro 2020 及以上）
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -WithOrigin
 
 # 3) 装到多个客户端
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Clients opencode,claude,codex
@@ -54,10 +58,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Clients openc
 
 ```powershell
 .\install.ps1 -Profile core                 # 25 个上游 + 2 个调度器
-.\install.ps1 -Profile writing              # 只装论文线
-.\install.ps1 -Profile sim                  # 只装仿真线
+.\install.ps1 -Profile writing              # 只装论文线（31 个上游）
+.\install.ps1 -Profile sim                  # 只装仿真线（11 个上游）
 .\install.ps1 -Clients opencode,claude      # 同时装到 Claude Code
 ```
+
+`origin-pro` 属于论文线，`core` 和 `sim` 不含它。
 
 ### macOS / Linux
 
@@ -73,7 +79,7 @@ cd sci-research-pack
 
 ## 包含什么
 
-### 论文线（30 个技能）
+### 论文线（31 个技能）
 
 | 阶段 | 技能 | 来自 |
 |---|---|---|
@@ -87,6 +93,7 @@ cd sci-research-pack
 | 润色 | `sciwrite` `nature-polishing` | sciwrite / nature-skills |
 | 实时期刊规则 | `scientific-paper-writer` | scientific-paper-writer |
 | 图表 | `figure-planner` `nature-figure` `scipilot-figure` `scientific-visualization` | 三个来源 |
+| Origin 出图 | `origin-pro`（可选 MCP） | origin-pro-mcp-skill |
 | 统计 | `stats-reporting-audit` `statistical-analysis` `nature-statistics` `uncertainty-and-units` | 三个来源 |
 | 引用 | `citation-verifier` `nature-citation` `nature-ref-verifier` | 两个来源 |
 | 审稿 | `paper-reviewer` `nature-reviewer` | 两个来源 |
@@ -128,8 +135,10 @@ sci-research-pack/
 ├─ uninstall.ps1                只删本包安装的内容
 ├─ manifest.json                模块、来源、Star、许可证
 ├─ skills/
-│  ├─ vendor/                   41 个上游技能（已内置，离线可用）
+│  ├─ vendor/                   42 个上游技能（已内置，离线可用）
 │  └─ local/                    2 个调度器
+├─ mcp/
+│  └─ origin-pro/               Origin MCP 源码（可选，Windows）
 ├─ commands/                    /paper /figure /review /revision /journal-fit /cfd
 ├─ config/
 │  ├─ opencode.mcp.jsonc        OpenCode V2 MCP 片段
@@ -236,6 +245,41 @@ Agent 会在 `connect` 前提醒 license 占用；收敛判断要求残差 + mon
 
 ---
 
+## Origin MCP（可选，仅 Windows）
+
+Origin 图的价值在于**可编辑**：审稿人要 `.opju`、要改字号、要换配色，Origin 都能给，matplotlib 导出的位图不能。本包内置 [`leima-max/origin-pro-mcp-skill`](https://github.com/leima-max/origin-pro-mcp-skill)（MIT，232★，v0.2.0）的 MCP 源码和配套技能 `origin-pro`。
+
+```powershell
+.\install.ps1 -WithOrigin -Clients opencode,claude,codex,claude-desktop
+```
+
+它会：
+
+1. 复用包目录的 `.venv`（与 Fluent MCP 共用）
+2. 从 `mcp/origin-pro/` 本地源码 `pip install`，不联网取包
+3. 把 `origin-pro` 注册到每个 `-Clients` 指定的客户端
+
+**硬性前提**：Windows + 已安装 OriginPro 2020 或更新版本。它走 COM，macOS/Linux 装不了；`install.sh` 在非 Windows 上会直接跳过。
+
+**和 Fluent MCP 的关键区别：Origin 必须你自己先打开。** MCP 只连上正在运行的 Origin 实例，不会替你启动，也不会替你关掉未保存的工程。
+
+23 个工具分六组：
+
+- 项目：`new_project` `save_project` `load_project` `export_all_graphs`
+- 数据：`create_worksheet` `set_worksheet_data` `get_worksheet_data` `import_csv_to_worksheet` `list_worksheets`
+- 绘图：`create_graph` `add_plot_to_graph` `set_axis_labels` `set_axis_range` `export_graph`
+- 样式：`apply_publication_style` `set_plot_style` `set_graph_font` `set_legend` `set_tick_style`
+- 分析：`curve_fit` `list_fitting_functions`
+- 高级：`run_labtalk` `get_labtalk_variable`
+
+`origin-pro` 技能负责执行顺序（先定 claim，再定样式，最后导出并核对文件大小），`figure-planner` 和 `nature-figure` 仍负责决定图画什么、多大尺寸。三者顺序反了，得到的就是一张能看但投不出去的图。
+
+> `run_labtalk` 等于在 Origin 里执行任意 LabTalk 脚本。只跑你读过的脚本。
+
+**依赖平衡**：`ansys-common-mcp` 要求 `mcp<3` 且 `fastmcp>=3`，后者要求 `mcp>=2.3`；而 Origin 上游代码写的是 1.x 的 `mcp.server.fastmcp`。本包在 `app.py` 里做了双版本导入（1.x 用 `FastMCP`，2.x 用 `MCPServer`），所以两者共用一个 venv 不打架。不要手动把 `mcp` 钉到 1.x，会弄坏 Fluent MCP。
+
+---
+
 ## 选装：Academic Research Skills
 
 ARS 是完整的 "research → write → review → revise → finalize" 十阶段流水线，
@@ -253,7 +297,7 @@ ARS 是完整的 "research → write → review → revise → finalize" 十阶�
 ## 设计原则
 
 1. **技能是判断，MCP 是手。** 工具能跑通不等于物理正确、论证成立。
-2. **一个阶段只叫一个专家。** 调度器先分诊，避免 30 个技能互相打架。
+2. **一个阶段只叫一个专家。** 调度器先分诊，避免 44 个技能互相打架。
 3. **证据缺口显式化。** 没有数据就写 `[DATA NEEDED]`，不猜。
 4. **期刊规则实时核对。** 包里的数字是参考值；投稿前必须看当期 Guide for Authors。
 5. **不碰你的东西。** 安装只写技能/命令目录；卸载只删本包列出的 ID。
@@ -267,7 +311,7 @@ ARS 是完整的 "research → write → review → revise → finalize" 十阶�
 .\uninstall.ps1 -Clients opencode,claude,codex
 ```
 
-`verify` 按客户端分别核对技能目录、命令文件、MCP 条目、Claude Desktop 的 zip、venv 和 Fluent 安装。`uninstall` 只删本包装进去的技能目录和命令文件，不动别的技能、不删 `.venv`、不删文稿；MCP 条目要按 `docs/08-客户端接入.md` 第 7 节手动清。
+`verify` 按客户端分别核对技能目录、命令文件、MCP 条目、Claude Desktop 的 zip、venv、Fluent 安装和 Origin 的 COM 注册。`uninstall` 只删本包装进去的技能目录和命令文件，不动别的技能、不删 `.venv`、不删文稿；MCP 条目要按 `docs/08-客户端接入.md` 第 8 节手动清。
 
 ---
 
@@ -284,6 +328,7 @@ ARS 是完整的 "research → write → review → revise → finalize" 十阶�
 | cavoiie/fluent-cfd-skill | 86 | MIT |
 | ansys/pyfluent-mcp | 64 | Apache-2.0 |
 | eniktab/scientific-paper-writer | 31 | MIT |
+| leima-max/origin-pro-mcp-skill | 232 | MIT |
 
 Star 数为 2026-10-28 GitHub API 读数。完整许可见 `licenses/` 与
 `THIRD_PARTY_NOTICES.md`。

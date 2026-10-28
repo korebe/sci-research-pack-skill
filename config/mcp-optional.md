@@ -1,6 +1,6 @@
 # 可选 MCP 清单
 
-主包只自动安装 **Fluent MCP**。下面这些按需自取，不装不影响写作技能。
+主包只自动安装 **Fluent MCP**；**Origin MCP** 需要显式加 `-WithOrigin`（Windows + OriginPro）。下面这些按需自取，不装不影响写作技能。
 
 > 原则：MCP 工具会占用模型上下文。一次只加你当前真正要用的。
 
@@ -87,7 +87,21 @@ cd openfoam-mcp-server
 
 ---
 
-## 6. 注册后检查
+## 6. Origin（内置，可选）
+
+- 仓库：<https://github.com/leima-max/origin-pro-mcp-skill>（232★，MIT）
+- 源码已内置在 `mcp/origin-pro/`，不需要 clone。
+- 前提：Windows + OriginPro 2020 或更新版本，且 Origin 必须手动先打开。
+
+```powershell
+.\install.ps1 -WithOrigin -Clients opencode,claude,codex
+```
+
+与 Fluent MCP 共用 `.venv`，MCP 名为 `origin-pro`。macOS/Linux 装不了（COM 依赖）。
+
+---
+
+## 7. 注册后检查
 
 ```powershell
 opencode mcp list

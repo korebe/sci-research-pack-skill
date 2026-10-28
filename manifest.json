@@ -2,11 +2,11 @@
   "name": "sci-research-pack",
   "version": "1.0.0",
   "built": "2026-10-28",
-  "description": "Curated top-journal writing skills + CFD/Fluent MCP integration pack",
+  "description": "Curated top-journal writing skills + CFD/Fluent and Origin MCP integration pack",
   "profiles": {
     "core": "20 writing skills + 5 simulation skills + 2 local orchestrators",
-    "full": "30 writing skills + 11 simulation skills + 2 local orchestrators",
-    "writing": "30 writing skills + 2 local orchestrators",
+    "full": "31 writing skills + 11 simulation skills + 2 local orchestrators",
+    "writing": "31 writing skills + 2 local orchestrators",
     "sim": "11 simulation skills + 2 local orchestrators"
   },
   "sources": [
@@ -82,6 +82,15 @@
       "stars": 86,
       "license": "MIT",
       "skills": ["fluent-cfd"]
+    },
+    {
+      "repo": "leima-max/origin-pro-mcp-skill",
+      "url": "https://github.com/leima-max/origin-pro-mcp-skill",
+      "stars": 232,
+      "license": "MIT",
+      "commit": "ff64b124e66e9793ff2e8945070ab651888a4e02",
+      "skills": ["origin-pro"],
+      "note": "Vendored MCP source in mcp/origin-pro; app.py has a local dual-SDK import shim."
     }
   ],
   "local_skills": [
@@ -106,6 +115,15 @@
       }
     ],
     "optional": [
+      {
+        "name": "origin-pro",
+        "package": "origin-pro-mcp",
+        "repo": "https://github.com/leima-max/origin-pro-mcp-skill",
+        "stars": 232,
+        "license": "MIT",
+        "requires": "Windows + OriginPro 2020 or newer; installed from bundled source with -WithOrigin",
+        "tools": 23
+      },
       { "name": "zotero", "package": "zotero-mcp-server", "stars": 5608, "license": "MIT" },
       { "name": "paper-search", "package": "paper-search-mcp", "stars": 2938, "license": "MIT" },
       { "name": "arxiv", "package": "arxiv-mcp-server", "stars": 3237, "license": "Apache-2.0" }

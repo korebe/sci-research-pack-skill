@@ -140,49 +140,54 @@ if ($Clients -contains 'claude-desktop') {
 
 # --------------------------------------------------------------------- MCP
 
-Write-Host "`n[MCP: ansys-fluent]" -ForegroundColor Cyan
-
-function Test-McpJson([string]$Path, [string]$Property) {
+function Test-McpJson([string]$Path, [string]$Property, [string]$Name) {
     if (-not (Test-Path $Path)) { return $false }
     try {
         $cfg = Get-Content $Path -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($Property -eq 'mcp.servers') {
-            return [bool]($cfg.mcp -and $cfg.mcp.servers -and $cfg.mcp.servers.'ansys-fluent')
+            return [bool]($cfg.mcp -and $cfg.mcp.servers -and $cfg.mcp.servers.$Name)
         }
-        return [bool]($cfg.mcpServers -and $cfg.mcpServers.'ansys-fluent')
+        return [bool]($cfg.mcpServers -and $cfg.mcpServers.$Name)
     } catch { return $false }
 }
 
-if ($Clients -contains 'opencode') {
-    $p = Join-Path $env:USERPROFILE '.config\opencode\opencode.json'
-    $pj = Join-Path $env:USERPROFILE '.config\opencode\opencode.jsonc'
-    if (Test-McpJson $p 'mcp.servers') { Line 'opencode' 'configured' 'ok' }
-    elseif ((Test-Path $pj) -and (Select-String -Path $pj -Pattern 'ansys-fluent' -Quiet)) {
-        Line 'opencode' 'configured (jsonc)' 'ok'
+function Report-Mcp([string]$Name) {
+    Write-Host "`n[MCP: $Name]" -ForegroundColor Cyan
+
+    if ($Clients -contains 'opencode') {
+        $p  = Join-Path $env:USERPROFILE '.config\opencode\opencode.json'
+        $pj = Join-Path $env:USERPROFILE '.config\opencode\opencode.jsonc'
+        if (Test-McpJson $p 'mcp.servers' $Name) { Line 'opencode' 'configured' 'ok' }
+        elseif ((Test-Path $pj) -and (Select-String -Path $pj -Pattern $Name -Quiet)) {
+            Line 'opencode' 'configured (jsonc)' 'ok'
+        }
+        else { Line 'opencode' 'not configured' 'warn' }
     }
-    else { Line 'opencode' 'not configured' 'warn' }
-}
 
-if ($Clients -contains 'claude') {
-    $p = Join-Path $env:USERPROFILE '.claude.json'
-    if (Test-McpJson $p 'mcpServers') { Line 'claude code' 'configured' 'ok' }
-    else { Line 'claude code' 'not configured' 'warn' }
-}
+    if ($Clients -contains 'claude') {
+        $p = Join-Path $env:USERPROFILE '.claude.json'
+        if (Test-McpJson $p 'mcpServers' $Name) { Line 'claude code' 'configured' 'ok' }
+        else { Line 'claude code' 'not configured' 'warn' }
+    }
 
-if ($Clients -contains 'codex') {
-    $p = Join-Path $env:USERPROFILE '.codex\config.toml'
-    if ((Test-Path $p) -and (Select-String -Path $p -Pattern '^\[mcp_servers\.ansys-fluent\]' -Quiet)) {
-        Line 'codex' "configured in $p" 'ok'
-    } else {
-        Line 'codex' 'not configured' 'warn'
+    if ($Clients -contains 'codex') {
+        $p = Join-Path $env:USERPROFILE '.codex\config.toml'
+        if ((Test-Path $p) -and (Select-String -Path $p -Pattern "^\[mcp_servers\.$([regex]::Escape($Name))\]" -Quiet)) {
+            Line 'codex' "configured in $p" 'ok'
+        } else {
+            Line 'codex' 'not configured' 'warn'
+        }
+    }
+
+    if ($Clients -contains 'claude-desktop') {
+        $p = Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'
+        if (Test-McpJson $p 'mcpServers' $Name) { Line 'claude desktop' "configured in $p" 'ok' }
+        else { Line 'claude desktop' 'not configured' 'warn' }
     }
 }
 
-if ($Clients -contains 'claude-desktop') {
-    $p = Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'
-    if (Test-McpJson $p 'mcpServers') { Line 'claude desktop' "configured in $p" 'ok' }
-    else { Line 'claude desktop' 'not configured' 'warn' }
-}
+Report-Mcp 'ansys-fluent'
+Report-Mcp 'origin-pro'
 
 # ------------------------------------------------------------------ python
 
@@ -201,8 +206,18 @@ if (Test-Path $venvPy) {
     if ($LASTEXITCODE -eq 0 -and $fv) { Line 'ansys-fluent-core' $fv 'ok' }
     elseif (-not $fv) { Line 'ansys-fluent-core' 'not installed or venv broken' 'warn' }
     else { Line 'ansys-fluent-core' 'not installed' 'warn' }
+
+    $ov = $null
+    try { $ov = & $venvPy -c "import importlib.metadata as m;print(m.version('origin-pro-mcp'))" 2>$null } catch { $ov = $null }
+    if ($LASTEXITCODE -eq 0 -and $ov) { Line 'origin-pro-mcp' $ov 'ok' }
+    elseif (-not $ov) { Line 'origin-pro-mcp' 'not installed (use -WithOrigin)' 'warn' }
+    else { Line 'origin-pro-mcp' 'not installed (use -WithOrigin)' 'warn' }
+
+    $oexe = Join-Path $PackRoot '.venv\Scripts\origin-pro-mcp.exe'
+    if (Test-Path $oexe) { Line 'origin entry point' $oexe 'ok' }
+    else { Line 'origin entry point' 'missing (use -WithOrigin)' 'warn' }
 } else {
-    Line 'venv' 'not created (use -WithFluent)' 'warn'
+    Line 'venv' 'not created (use -WithFluent / -WithOrigin)' 'warn'
 }
 
 # ------------------------------------------------------------------- fluent
@@ -226,6 +241,29 @@ if ($roots.Count -gt 0) {
 $lic = $env:ANSYSLMD_LICENSE_FILE
 if ($lic) { Line 'license server' $lic 'ok' } else { Line 'license server' 'env not set (may still work)' 'warn' }
 
+# ------------------------------------------------------------------- origin
+
+Write-Host "`n[Origin Pro]" -ForegroundColor Cyan
+$originRoots = @()
+foreach ($base in @("$env:ProgramFiles\OriginLab", "${env:ProgramFiles(x86)}\OriginLab")) {
+    if ($base -and (Test-Path $base)) {
+        Get-ChildItem $base -Directory -ErrorAction SilentlyContinue | ForEach-Object { $originRoots += $_.FullName }
+    }
+}
+if ($originRoots.Count -gt 0) {
+    Line 'install root' ($originRoots -join '; ') 'ok'
+} else {
+    Line 'install root' 'not detected' 'warn'
+}
+# COM registration is what the MCP actually needs, so check that too.
+$com = $null
+try { $com = Get-Item 'Registry::HKEY_CLASSES_ROOT\Origin.ApplicationSI' -ErrorAction Stop } catch { $com = $null }
+if ($com) { Line 'COM (Origin.ApplicationSI)' 'registered' 'ok' }
+else { Line 'COM (Origin.ApplicationSI)' 'not registered' 'bad' }
+$proc = Get-Process -Name 'Origin64', 'Origin' -ErrorAction SilentlyContinue
+if ($proc) { Line 'running' (($proc | Select-Object -First 1).ProcessName) 'ok' }
+else { Line 'running' 'not running (start it before using origin-pro)' 'warn' }
+
 # ---------------------------------------------------------------- next step
 
 Write-Host "`n  -------------------------------------------------" -ForegroundColor DarkGray
@@ -234,5 +272,8 @@ if ($Clients -contains 'opencode')       { Write-Host '    OpenCode       : /pap
 if ($Clients -contains 'claude')         { Write-Host '    Claude Code    : /paper   or   /cfd' }
 if ($Clients -contains 'codex')          { Write-Host '    Codex          : /skills  then pick journal-pipeline' }
 if ($Clients -contains 'claude-desktop') { Write-Host '    Claude Desktop : Settings > Capabilities > Skills > upload a zip' }
+if (Test-Path (Join-Path $PackRoot 'skills\vendor\origin-pro')) {
+    Write-Host '    OriginPro      : start Origin first, then ask for a figure'
+}
 Write-Host '    Details        : docs\08-客户端接入.md' -ForegroundColor DarkGray
 Write-Host ''

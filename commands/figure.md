@@ -11,3 +11,6 @@ Load `figure-planner` first to decide what each panel must prove, then
 Nature display-item rules. Check: panel labels, scale bars, units, error-bar
 definition, sample size, colour-blind safety, font size after reduction,
 resolution, and whether every panel is cited in the Results in order.
+
+If the user asks for Origin/OriginPro output, hand the approved spec to
+`origin-pro` after the first three skills (Windows + running Origin required).

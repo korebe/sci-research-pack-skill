@@ -8,6 +8,7 @@
 #   ./install.sh --clients codex                # 只装 Codex
 #   ./install.sh --clients claude-desktop       # 只配 Claude Desktop 的 MCP
 #   ./install.sh --with-fluent                  # 同时装 Fluent MCP
+#   ./install.sh --with-origin                  # 同时装 Origin MCP（Windows + OriginPro）
 #   ./install.sh --dry-run                      # 只看会做什么
 #
 # Clients:
@@ -21,15 +22,19 @@ set -euo pipefail
 PROFILE="full"
 CLIENTS="opencode"
 WITH_FLUENT=0
+WITH_ORIGIN=0
 DRY_RUN=0
 FORCE=0
 PACK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 ALL_CLIENTS="opencode claude codex claude-desktop"
 MCP_NAME="ansys-fluent"
+ORIGIN_MCP="origin-pro"
 
 usage() {
-  sed -n '3,20p' "$0" | sed 's/^# \{0,1\}//'
+  # Print the comment block from line 3 down to the `set -euo pipefail` line.
+  sed -n '3,/^set -euo pipefail$/p' "$0" \
+    | sed -e 's/^# \{0,1\}//' -e '/^set -euo pipefail$/d'
   exit 0
 }
 
@@ -38,6 +43,7 @@ while [[ $# -gt 0 ]]; do
     --profile) PROFILE="$2"; shift 2 ;;
     --clients) CLIENTS="$2"; shift 2 ;;
     --with-fluent) WITH_FLUENT=1; shift ;;
+    --with-origin) WITH_ORIGIN=1; shift ;;
     --force) FORCE=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage ;;
@@ -55,12 +61,17 @@ err()  { printf "  ${c_red}[XX] %s${c_reset}\n" "$1"; }
 # ---------------------------------------------------------------- profile
 
 case "$PROFILE" in
-  writing) IDS="paper-workflow scientific-writing write-scientific-manuscript scientific-prose-style anti-defensive-writing results-section-revision manuscript-optimizer claim-source-verification citation-verifier stats-reporting-audit figure-planner nature-figure nature-portfolio-playbook paper-reviewer rebuttal-response submission-audit sciwrite journal-adapt scipilot-figure scientific-paper-writer nature-writing nature-polishing nature-citation nature-ref-verifier nature-reviewer nature-response nature-paper2word nature-paper-xray nature-statistics nature-shared" ;;
+  writing) IDS="paper-workflow scientific-writing write-scientific-manuscript scientific-prose-style anti-defensive-writing results-section-revision manuscript-optimizer claim-source-verification citation-verifier stats-reporting-audit figure-planner nature-figure nature-portfolio-playbook paper-reviewer rebuttal-response submission-audit sciwrite journal-adapt scipilot-figure scientific-paper-writer nature-writing nature-polishing nature-citation nature-ref-verifier nature-reviewer nature-response nature-paper2word nature-paper-xray nature-statistics nature-shared origin-pro" ;;
   sim) IDS="fluent-cfd fluidsim openpiv cantera pybamm simpy uncertainty-and-units statistical-analysis scientific-visualization literature-review paper-lookup" ;;
   core) IDS="paper-workflow scientific-writing write-scientific-manuscript scientific-prose-style anti-defensive-writing results-section-revision manuscript-optimizer claim-source-verification citation-verifier stats-reporting-audit figure-planner nature-figure nature-portfolio-playbook paper-reviewer rebuttal-response submission-audit sciwrite journal-adapt scipilot-figure scientific-paper-writer fluent-cfd fluidsim uncertainty-and-units statistical-analysis scientific-visualization" ;;
-  full) IDS="paper-workflow scientific-writing write-scientific-manuscript scientific-prose-style anti-defensive-writing results-section-revision manuscript-optimizer claim-source-verification citation-verifier stats-reporting-audit figure-planner nature-figure nature-portfolio-playbook paper-reviewer rebuttal-response submission-audit sciwrite journal-adapt scipilot-figure scientific-paper-writer nature-writing nature-polishing nature-citation nature-ref-verifier nature-reviewer nature-response nature-paper2word nature-paper-xray nature-statistics nature-shared fluent-cfd fluidsim openpiv cantera pybamm simpy uncertainty-and-units statistical-analysis scientific-visualization literature-review paper-lookup" ;;
+  full) IDS="paper-workflow scientific-writing write-scientific-manuscript scientific-prose-style anti-defensive-writing results-section-revision manuscript-optimizer claim-source-verification citation-verifier stats-reporting-audit figure-planner nature-figure nature-portfolio-playbook paper-reviewer rebuttal-response submission-audit sciwrite journal-adapt scipilot-figure scientific-paper-writer nature-writing nature-polishing nature-citation nature-ref-verifier nature-reviewer nature-response nature-paper2word nature-paper-xray nature-statistics nature-shared origin-pro fluent-cfd fluidsim openpiv cantera pybamm simpy uncertainty-and-units statistical-analysis scientific-visualization literature-review paper-lookup" ;;
   *) err "unknown profile: $PROFILE (expected full|core|writing|sim)"; exit 1 ;;
 esac
+# The MCP is useless without its skill, so --with-origin pulls origin-pro into
+# core/sim profiles that do not include it by default.
+if [[ $WITH_ORIGIN -eq 1 && " $IDS " != *" origin-pro "* ]]; then
+  IDS="$IDS origin-pro"
+fi
 LOCAL_IDS="journal-pipeline cfd-fluent-pipeline"
 
 # ---------------------------------------------------------------- client paths
@@ -114,6 +125,16 @@ find_python() {
     fi
   done
   return 1
+}
+
+# MCP clients are native binaries. Under Git Bash/MSYS a path like
+# /c/Users/... is not executable for them, so hand them a Windows path.
+to_client_path() {
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -w "$1"
+  else
+    printf '%s' "$1"
+  fi
 }
 
 # ---------------------------------------------------------------- validation
@@ -272,14 +293,14 @@ fi
 # mode=desktop  -> {"mcpServers":{...}}
 # mode=claude   -> {"mcpServers":{...}}  (~/.claude.json)
 merge_json_mcp() {
-  local mode="$1" path="$2" exe="$3"
+  local mode="$1" path="$2" exe="$3" name="${4:-$MCP_NAME}"
   if [[ $DRY_RUN -eq 1 ]]; then
-    skip "would merge $MCP_NAME into $path"
+    skip "would merge $name into $path"
     return 0
   fi
   local py
   py="$(find_python)" || { err "python not found; cannot merge $path"; return 1; }
-  "$py" - "$mode" "$path" "$MCP_NAME" "$exe" <<'PY'
+  "$py" - "$mode" "$path" "$name" "$exe" <<'PY'
 import json, os, sys
 mode, path, name, exe = sys.argv[1:5]
 data = {}
@@ -308,26 +329,31 @@ PY
 
 # Append a [mcp_servers.<name>] block to Codex config.toml if absent.
 register_codex_mcp() {
-  local path="$1" exe="$2"
-  if [[ -f "$path" ]] && grep -q "^\[mcp_servers\.$MCP_NAME\]" "$path"; then
-    skip "$MCP_NAME already in $path"
+  local path="$1" exe="$2" name="${3:-$MCP_NAME}"
+  if [[ -f "$path" ]] && grep -q "^\[mcp_servers\.$name\]" "$path"; then
+    skip "$name already in $path"
     return 0
   fi
-  [[ $DRY_RUN -eq 1 ]] && { ok "would append [mcp_servers.$MCP_NAME] to $path"; return 0; }
+  [[ $DRY_RUN -eq 1 ]] && { ok "would append [mcp_servers.$name] to $path"; return 0; }
   mkdir -p "$(dirname "$path")"
   cat >> "$path" <<TOML
 
-[mcp_servers.$MCP_NAME]
+[mcp_servers.$name]
 command = '$exe'
 args = []
 startup_timeout_sec = 45
 tool_timeout_sec = 600
+TOML
+  # Only the Fluent server reads these; keep the Origin block clean.
+  if [[ "$name" == "$MCP_NAME" ]]; then
+    cat >> "$path" <<TOML
 
-[mcp_servers.$MCP_NAME.env]
+[mcp_servers.$name.env]
 FLUIDS_MCP_LOG_LEVEL = "INFO"
 FLUIDS_MCP_MAX_STEPS = "30"
 TOML
-  ok "appended [mcp_servers.$MCP_NAME] to $path"
+  fi
+  ok "appended [mcp_servers.$name] to $path"
 }
 
 if [[ $WITH_FLUENT -eq 1 ]]; then
@@ -339,6 +365,7 @@ if [[ $WITH_FLUENT -eq 1 ]]; then
     MINGW*|MSYS*|CYGWIN*) VENV_BIN="$VENV/Scripts"; EXE="$VENV/Scripts/ansys-fluent-mcp.exe" ;;
     *)                    VENV_BIN="$VENV/bin";     EXE="$VENV/bin/ansys-fluent-mcp" ;;
   esac
+  EXE_ARG="$(to_client_path "$EXE")"
   if [[ $DRY_RUN -eq 0 ]]; then
     [[ -d "$VENV" ]] || "$PY" -m venv "$VENV"
     "$VENV_BIN/python" -m pip install --upgrade pip --quiet
@@ -351,36 +378,100 @@ if [[ $WITH_FLUENT -eq 1 ]]; then
   if has_client opencode; then
     if command -v opencode >/dev/null; then
       if [[ $DRY_RUN -eq 0 ]]; then
-        opencode mcp add "$MCP_NAME" --global -- "$EXE" && ok "opencode: $MCP_NAME" \
+        opencode mcp add "$MCP_NAME" --global -- "$EXE_ARG" && ok "opencode: $MCP_NAME" \
           || warn "opencode mcp add failed; merge by hand (config/opencode.mcp.jsonc)"
       else
-        skip "would run: opencode mcp add $MCP_NAME --global -- $EXE"
+        skip "would run: opencode mcp add $MCP_NAME --global -- $EXE_ARG"
       fi
     else
-      merge_json_mcp opencode "$HOME/.config/opencode/opencode.json" "$EXE"
+      merge_json_mcp opencode "$HOME/.config/opencode/opencode.json" "$EXE_ARG"
     fi
   fi
   if has_client claude; then
     if command -v claude >/dev/null; then
       if [[ $DRY_RUN -eq 0 ]]; then
-        claude mcp add --scope user "$MCP_NAME" -- "$EXE" && ok "claude code: $MCP_NAME" \
+        claude mcp add --scope user "$MCP_NAME" -- "$EXE_ARG" && ok "claude code: $MCP_NAME" \
           || warn "claude mcp add failed; merge by hand into ~/.claude.json"
       else
-        skip "would run: claude mcp add --scope user $MCP_NAME -- $EXE"
+        skip "would run: claude mcp add --scope user $MCP_NAME -- $EXE_ARG"
       fi
     else
-      merge_json_mcp claude "$HOME/.claude.json" "$EXE"
+      merge_json_mcp claude "$HOME/.claude.json" "$EXE_ARG"
     fi
   fi
   if has_client codex; then
-    register_codex_mcp "$HOME/.codex/config.toml" "$EXE"
+    register_codex_mcp "$HOME/.codex/config.toml" "$EXE_ARG"
   fi
   if has_client claude-desktop; then
-    merge_json_mcp desktop "$(desktop_config_path)" "$EXE"
+    merge_json_mcp desktop "$(desktop_config_path)" "$EXE_ARG"
     warn "restart Claude Desktop (quit from the tray, not just close the window)"
   fi
 else
-  step "Skipping MCP (use --with-fluent to install it)"
+  step "Skipping Fluent MCP (use --with-fluent to install it)"
+fi
+
+# ---------------------------------------------------------------- Origin MCP
+
+if [[ $WITH_ORIGIN -eq 1 ]]; then
+  step "Setting up Origin Pro MCP"
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) OS_KIND=windows ;;
+    *)                    OS_KIND=other ;;
+  esac
+  if [[ "$OS_KIND" != "windows" ]]; then
+    warn "origin-pro drives Origin through COM: Windows only. Skipped."
+  elif [[ ! -f "$PACK_ROOT/mcp/origin-pro/pyproject.toml" ]]; then
+    warn "bundled source missing: mcp/origin-pro"
+  else
+    PY="$(find_python)" || { err "python 3 not found (needed for the Origin MCP venv)"; exit 1; }
+    VENV="$PACK_ROOT/.venv"
+    VENV_BIN="$VENV/Scripts"
+    OEXE="$VENV_BIN/origin-pro-mcp.exe"
+    OEXE_ARG="$(to_client_path "$OEXE")"
+    if [[ $DRY_RUN -eq 0 ]]; then
+      [[ -d "$VENV" ]] || "$PY" -m venv "$VENV"
+      if "$VENV_BIN/python" -m pip install --upgrade pip --quiet 2>/dev/null \
+         && "$VENV_BIN/python" -m pip install --upgrade "$PACK_ROOT/mcp/origin-pro" --quiet 2>/dev/null; then
+        ok "installed origin-pro-mcp"
+      else
+        warn "pip install failed; run manually:"
+        printf '       "%s" -m pip install "%s"\n' "$VENV_BIN/python" "$PACK_ROOT/mcp/origin-pro"
+      fi
+    fi
+    if [[ -x "$OEXE" || $DRY_RUN -eq 1 ]]; then
+      step "Registering origin-pro with each client"
+      if has_client opencode; then
+        if command -v opencode >/dev/null && [[ $DRY_RUN -eq 0 ]]; then
+          opencode mcp add "$ORIGIN_MCP" --global -- "$OEXE_ARG" && ok "opencode: $ORIGIN_MCP" \
+            || warn "opencode mcp add failed"
+        elif command -v opencode >/dev/null; then
+          skip "would run: opencode mcp add $ORIGIN_MCP --global -- $OEXE_ARG"
+        else
+          merge_json_mcp opencode "$HOME/.config/opencode/opencode.json" "$OEXE_ARG" "$ORIGIN_MCP"
+        fi
+      fi
+      if has_client claude; then
+        if command -v claude >/dev/null && [[ $DRY_RUN -eq 0 ]]; then
+          claude mcp add --scope user "$ORIGIN_MCP" -- "$OEXE_ARG" && ok "claude code: $ORIGIN_MCP" \
+            || warn "claude mcp add failed"
+        elif command -v claude >/dev/null; then
+          skip "would run: claude mcp add --scope user $ORIGIN_MCP -- $OEXE_ARG"
+        else
+          merge_json_mcp claude "$HOME/.claude.json" "$OEXE_ARG" "$ORIGIN_MCP"
+        fi
+      fi
+      if has_client codex; then
+        register_codex_mcp "$HOME/.codex/config.toml" "$OEXE_ARG" "$ORIGIN_MCP"
+      fi
+      if has_client claude-desktop; then
+        merge_json_mcp desktop "$(desktop_config_path)" "$OEXE_ARG" "$ORIGIN_MCP"
+        warn "restart Claude Desktop (quit from the tray)"
+      fi
+      skip "start OriginPro yourself before using it; the MCP does not launch Origin"
+    else
+      warn "MCP entry point not found: $OEXE"
+    fi
+  fi
 fi
 
 # ---------------------------------------------------------------- summary
@@ -396,4 +487,5 @@ has_client opencode       && printf "    OpenCode       : /paper  or  /cfd\n"
 has_client claude         && printf "    Claude Code    : /paper  or  /cfd\n"
 has_client codex          && printf "    Codex          : /skills  then pick journal-pipeline\n"
 has_client claude-desktop && printf "    Claude Desktop : Settings > Capabilities > Skills > upload a zip\n"
+[[ $WITH_ORIGIN -eq 1 ]]  && printf "    OriginPro      : start Origin first, then ask for a figure\n"
 printf "  read: docs/08-客户端接入.md\n\n"

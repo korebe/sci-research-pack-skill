@@ -21,6 +21,9 @@
 .PARAMETER WithFluent
   Create .venv, pip install ansys-fluent-mcp, register the MCP server.
 
+.PARAMETER WithOrigin
+  Register the bundled origin-pro MCP server (Windows + OriginPro 2020+ only).
+
 .PARAMETER WithARS
   Clone the optional OpenCode port of Academic Research Skills (CC BY-NC).
 
@@ -31,6 +34,7 @@
   .\install.ps1
   .\install.ps1 -Profile core -Clients opencode,claude
   .\install.ps1 -WithFluent
+  .\install.ps1 -WithOrigin -Clients opencode,claude-desktop
 #>
 param(
     [ValidateSet('full', 'core', 'writing', 'sim')]
@@ -42,6 +46,7 @@ param(
     [string[]]$Clients = @('opencode'),
 
     [switch]$WithFluent,
+    [switch]$WithOrigin,
     [switch]$WithARS,
     [switch]$SkipClone,
     [switch]$Force,
@@ -363,11 +368,17 @@ function Register-CodexMcp {
         'startup_timeout_sec = 45'
         'tool_timeout_sec = 600'
         ''
-        "[mcp_servers.$Name.env]"
-        'FLUIDS_MCP_LOG_LEVEL = "INFO"'
-        'FLUIDS_MCP_MAX_STEPS = "30"'
-        ''
-    ) -join "`r`n"
+    )
+    # Only the Fluent server reads these; keep the Origin block clean.
+    if ($Name -eq 'ansys-fluent') {
+        $block += @(
+            "[mcp_servers.$Name.env]"
+            'FLUIDS_MCP_LOG_LEVEL = "INFO"'
+            'FLUIDS_MCP_MAX_STEPS = "30"'
+            ''
+        )
+    }
+    $block = $block -join "`r`n"
 
     [IO.File]::AppendAllText($path, $block, (New-Object Text.UTF8Encoding($false)))
     Write-Ok "appended [mcp_servers.$Name] to $path"
@@ -385,6 +396,21 @@ function Get-Python {
     return $null
 }
 
+function Register-Mcp {
+    <#
+      Register one MCP server with every selected client. Each client stores
+      servers elsewhere, so the dispatch stays in one place.
+    #>
+    param([string]$Name, [string]$Exe)
+
+    $ok = $true
+    if ($Clients -contains 'opencode')       { $ok = [bool](Register-OpenCodeMcp -Name $Name -Exe $Exe) }
+    if ($Clients -contains 'claude')         { Register-ClaudeMcp -Name $Name -Exe $Exe }
+    if ($Clients -contains 'codex')          { [void](Register-CodexMcp -Name $Name -Exe $Exe) }
+    if ($Clients -contains 'claude-desktop') { [void](Register-ClaudeDesktopMcp -Name $Name -Exe $Exe) }
+    $script:mcpStatus[$Name] = $ok
+}
+
 # ---------------------------------------------------------------- plan
 
 $writingIds = @(
@@ -397,7 +423,7 @@ $writingIds = @(
     'scientific-paper-writer', 'nature-writing', 'nature-polishing',
     'nature-citation', 'nature-ref-verifier', 'nature-reviewer',
     'nature-response', 'nature-paper2word', 'nature-paper-xray',
-    'nature-statistics', 'nature-shared'
+    'nature-statistics', 'nature-shared', 'origin-pro'
 )
 
 $simIds = @(
@@ -423,6 +449,9 @@ switch ($Profile) {
     'core'    { $selected = $coreWriting + $coreSim }
     default   { $selected = $writingIds + $simIds }
 }
+# The MCP is useless without its skill, so -WithOrigin pulls origin-pro into
+# core/sim profiles that do not include it by default.
+if ($WithOrigin) { $selected = $selected + 'origin-pro' }
 $selected = $selected | Select-Object -Unique
 
 $localIds = @('journal-pipeline', 'cfd-fluent-pipeline')
@@ -435,8 +464,10 @@ Write-Host "  Profile : $Profile ($($selected.Count) upstream + $($localIds.Coun
 Write-Host "  Clients : $($Clients -join ', ')"
 if ($DryRun) { Write-Host '  Mode    : DRY RUN (nothing will be written)' -ForegroundColor Yellow }
 if ($WithFluent) { Write-Host '  Fluent  : MCP will be installed' }
+if ($WithOrigin) { Write-Host '  Origin  : MCP will be installed (Windows + OriginPro)' }
 if ($WithARS) { Write-Host '  ARS     : optional module will be cloned' }
 
+$mcpStatus = @{}
 # 1. sanity
 Write-Step 'Checking prerequisites'
 $git = Get-Command git -ErrorAction SilentlyContinue
@@ -496,7 +527,6 @@ if ($Clients -contains 'claude-desktop') {
 }
 
 # 5. Fluent MCP
-$mcpOk = $false
 if ($WithFluent) {
     Write-Step 'Setting up Ansys Fluent MCP'
     $py = Get-Python $PythonExe
@@ -508,8 +538,8 @@ if ($WithFluent) {
         $venv = Join-Path $PackRoot '.venv'
         $venvPy = Join-Path $venv 'Scripts\python.exe'
         if (-not (Test-Path $venvPy)) {
-            if (-not $DryRun) { & $py -m venv $venv }
-            Write-Ok "created venv: $venv"
+            if (-not $DryRun) { & $py -m venv $venv; Write-Ok "created venv: $venv" }
+            else { Write-Skip "would create venv: $venv" }
         } else {
             Write-Skip "venv exists: $venv"
         }
@@ -533,12 +563,57 @@ if ($WithFluent) {
         }
         $exe = Join-Path $venv 'Scripts\ansys-fluent-mcp.exe'
         if ((Test-Path $exe) -or $DryRun) {
-            if ($Clients -contains 'opencode')       { $mcpOk = Register-OpenCodeMcp -Name 'ansys-fluent' -Exe $exe }
-            if ($Clients -contains 'claude')         { Register-ClaudeMcp -Name 'ansys-fluent' -Exe $exe }
-            if ($Clients -contains 'codex')          { [void](Register-CodexMcp -Name 'ansys-fluent' -Exe $exe) }
-            if ($Clients -contains 'claude-desktop') { [void](Register-ClaudeDesktopMcp -Name 'ansys-fluent' -Exe $exe) }
+            Register-Mcp -Name 'ansys-fluent' -Exe $exe
         } else {
             Write-Warn2 "MCP entry point not found: $exe"
+        }
+    }
+}
+
+# 5b. Origin MCP (bundled source, Windows only)
+if ($WithOrigin) {
+    Write-Step 'Setting up Origin Pro MCP'
+    if ($env:OS -ne 'Windows_NT') {
+        Write-Warn2 'origin-pro drives Origin through COM: Windows only. Skipped.'
+    } elseif (-not (Test-Path (Join-Path $PackRoot 'mcp\origin-pro\pyproject.toml'))) {
+        Write-Warn2 'bundled source missing: mcp\origin-pro'
+    } else {
+        $py = Get-Python $PythonExe
+        if (-not $py) {
+            Write-Err2 'Python not found. Install Python 3.10+ and re-run with -PythonExe.'
+        } else {
+            $originSrc = Join-Path $PackRoot 'mcp\origin-pro'
+            $venv = Join-Path $PackRoot '.venv'
+            $venvPy = Join-Path $venv 'Scripts\python.exe'
+            if (-not (Test-Path $venvPy)) {
+                if (-not $DryRun) { & $py -m venv $venv; Write-Ok "created venv: $venv" }
+                else { Write-Skip "would create venv: $venv" }
+            } else {
+                Write-Skip "venv exists: $venv"
+            }
+            if (-not $DryRun) {
+                $pipOk = $false
+                try {
+                    & $venvPy -m pip install --upgrade pip --quiet 2>&1 | Out-Null
+                    & $venvPy -m pip install --upgrade $originSrc --quiet 2>&1 | Out-Null
+                    $pipOk = ($LASTEXITCODE -eq 0)
+                } catch {
+                    $pipOk = $false
+                }
+                if ($pipOk) {
+                    Write-Ok 'installed origin-pro-mcp'
+                } else {
+                    Write-Warn2 'pip install failed; run manually:'
+                    Write-Host "       `"$venvPy`" -m pip install `"$originSrc`""
+                }
+            }
+            $exe = Join-Path $venv 'Scripts\origin-pro-mcp.exe'
+            if ((Test-Path $exe) -or $DryRun) {
+                Register-Mcp -Name 'origin-pro' -Exe $exe
+                Write-Skip 'start OriginPro yourself before using it; the MCP does not launch Origin'
+            } else {
+                Write-Warn2 "MCP entry point not found: $exe"
+            }
         }
     }
 }
@@ -558,7 +633,8 @@ $lines = @(
     "missing:",
     ($missing  | Sort-Object | ForEach-Object { "  - $_" }),
     "",
-    "mcp ansys-fluent: $mcpOk"
+    "mcp ansys-fluent: $([bool]$mcpStatus['ansys-fluent'])",
+    "mcp origin-pro  : $([bool]$mcpStatus['origin-pro'])"
 )
 if (-not $DryRun) { $lines | Set-Content $report -Encoding UTF8 }
 
@@ -585,6 +661,9 @@ if ($Clients -contains 'codex') {
 if ($Clients -contains 'claude-desktop') {
     Write-Host '    Claude Desktop : Settings > Capabilities > Skills > upload dist\claude-skills\*.zip'
     Write-Host '                     MCP only took effect after a full quit from the tray'
+}
+if ($WithOrigin -and $env:OS -eq 'Windows_NT') {
+    Write-Host '    OriginPro      : start Origin first, then ask for a figure (origin-pro tools)'
 }
 Write-Host '    Verify         : .\verify.ps1'
 Write-Host '    Docs           : docs\01-技能路由表.md   docs\08-客户端接入.md'
