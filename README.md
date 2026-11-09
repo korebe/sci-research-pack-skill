@@ -334,7 +334,3 @@ Star 数为 2026-10-28 GitHub API 读数。完整许可见 `licenses/` 与
 `THIRD_PARTY_NOTICES.md`。
 
 ---
-
-## 一句话
-
-**这套包不替你写论文，它逼你把论文写对。**
