@@ -15,6 +15,8 @@
       "url": "https://github.com/K-Dense-AI/scientific-agent-skills",
       "stars": 54965,
       "license": "MIT",
+      "commit": "526ebce143bc326f44471554e33d66a19c840360",
+      "tag": "v2.72.0",
       "skills": [
         "fluidsim", "openpiv", "cantera", "pybamm", "simpy",
         "uncertainty-and-units", "statistical-analysis",
@@ -26,6 +28,7 @@
       "url": "https://github.com/Boom5426/Nature-Paper-Skills",
       "stars": 636,
       "license": "MIT",
+      "commit": "00ecc183dddc5aba23462c1d547d250836122962",
       "skills": [
         "paper-workflow", "scientific-writing", "write-scientific-manuscript",
         "scientific-prose-style", "anti-defensive-writing",
@@ -41,6 +44,8 @@
       "url": "https://github.com/labarba/sciwrite",
       "stars": 865,
       "license": "CC-BY-4.0",
+      "commit": "5b2ef3bb4477d69c61e0480359894ac04136bb32",
+      "note": "Pin is HEAD after the notice-related commits. Tag v1.0.0 is earlier commit 07ff1389f4394d19c21ff4ffba50ee2c0b40fb2d on the 1.0.0 line, not this pin. Vendored copy is skill content only and does not include tools/ or LICENSE-CODE.",
       "skills": ["sciwrite"]
     },
     {
@@ -48,6 +53,8 @@
       "url": "https://github.com/WantongC/journal-adapt-writing-skill",
       "stars": 767,
       "license": "MIT",
+      "commit": "cc79265b0acc21bc488c4c3004d89113cf19335a",
+      "note": "Unchanged. Pack vendors skill/, not the repository root README.",
       "skills": ["journal-adapt"]
     },
     {
@@ -55,6 +62,7 @@
       "url": "https://github.com/Haojae/scipilot-figure-skill",
       "stars": 2719,
       "license": "MIT",
+      "commit": "43098ddb9e6a6d142218540c114f9ed38922fc42",
       "skills": ["scipilot-figure"]
     },
     {
@@ -62,6 +70,7 @@
       "url": "https://github.com/eniktab/scientific-paper-writer",
       "stars": 31,
       "license": "MIT",
+      "commit": "9485432beae0f33df9bcdcf2b8070ab0b987122b",
       "skills": ["scientific-paper-writer"]
     },
     {
@@ -69,6 +78,8 @@
       "url": "https://github.com/Yuan1z0825/nature-skills",
       "stars": 51019,
       "license": "Apache-2.0",
+      "commit": "7bff1d0539c0dfad6c30178bb93ce6dd8a5cebf8",
+      "note": "nature-figure in this pack comes from Boom5426/Nature-Paper-Skills (skills/figure/nature-figure), not from this repository. skills/vendor/nature-shared/SKILL.md keeps local metadata opencode/autoinvoke: false.",
       "skills": [
         "nature-writing", "nature-polishing", "nature-citation",
         "nature-ref-verifier", "nature-reviewer", "nature-response",
@@ -81,6 +92,7 @@
       "url": "https://github.com/cavoiie/fluent-cfd-skill",
       "stars": 86,
       "license": "MIT",
+      "commit": "bdc191924c5619b3c160b33925b78f88376f7819",
       "skills": ["fluent-cfd"]
     },
     {
