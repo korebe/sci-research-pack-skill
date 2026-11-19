@@ -78,7 +78,7 @@
       "url": "https://github.com/Yuan1z0825/nature-skills",
       "stars": 51019,
       "license": "Apache-2.0",
-      "commit": "7bff1d0539c0dfad6c30178bb93ce6dd8a5cebf8",
+      "commit": "9bd1d0823f564752f0dcc701f9bd3a0001fffdc5",
       "note": "nature-figure in this pack comes from Boom5426/Nature-Paper-Skills (skills/figure/nature-figure), not from this repository. skills/vendor/nature-shared/SKILL.md keeps local metadata opencode/autoinvoke: false.",
       "skills": [
         "nature-writing", "nature-polishing", "nature-citation",

@@ -64,7 +64,7 @@ Recorded in `manifest.json` on 2026-11-16. Star counts above were not refreshed.
 - WantongC/journal-adapt-writing-skill `cc79265b0acc21bc488c4c3004d89113cf19335a` (vendored path is `skill/`, not the root README)
 - Haojae/scipilot-figure-skill `43098ddb9e6a6d142218540c114f9ed38922fc42`
 - eniktab/scientific-paper-writer `9485432beae0f33df9bcdcf2b8070ab0b987122b`
-- Yuan1z0825/nature-skills `7bff1d0539c0dfad6c30178bb93ce6dd8a5cebf8` (`nature-figure` in this pack is from Nature-Paper-Skills, not this repo; `nature-shared/SKILL.md` keeps local autoinvoke metadata)
+- Yuan1z0825/nature-skills `9bd1d0823f564752f0dcc701f9bd3a0001fffdc5` (`nature-figure` in this pack is from Nature-Paper-Skills, not this repo; `nature-shared/SKILL.md` keeps local autoinvoke metadata)
 - cavoiie/fluent-cfd-skill `bdc191924c5619b3c160b33925b78f88376f7819`
 - leima-max/origin-pro-mcp-skill `ff64b124e66e9793ff2e8945070ab651888a4e02`
 
