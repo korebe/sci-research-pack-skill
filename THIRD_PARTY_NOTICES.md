@@ -59,7 +59,7 @@ MIT.
 Recorded in `manifest.json` on 2026-11-16. Star counts above were not refreshed.
 
 - K-Dense-AI/scientific-agent-skills `526ebce143bc326f44471554e33d66a19c840360` (tag `v2.72.0`)
-- Boom5426/Nature-Paper-Skills `00ecc183dddc5aba23462c1d547d250836122962`
+- Boom5426/Nature-Paper-Skills `c5cfe029b0453f687e5d81a92c4c36fe720118d0`
 - labarba/sciwrite `5b2ef3bb4477d69c61e0480359894ac04136bb32` (tag `v1.0.0` is earlier commit `07ff1389f4394d19c21ff4ffba50ee2c0b40fb2d`; skill content only, `tools/` not vendored)
 - WantongC/journal-adapt-writing-skill `cc79265b0acc21bc488c4c3004d89113cf19335a` (vendored path is `skill/`, not the root README)
 - Haojae/scipilot-figure-skill `43098ddb9e6a6d142218540c114f9ed38922fc42`
